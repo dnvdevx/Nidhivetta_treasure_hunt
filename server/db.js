@@ -32,7 +32,10 @@ if (isSupabaseConfigured) {
   console.log('Using local JSON storage adapter (Provide SUPABASE_URL to use Supabase).');
 }
 
-const LOCAL_STORE_FILE = path.join(__dirname, 'data', 'store.json');
+const IS_VERCEL = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+const LOCAL_STORE_FILE = IS_VERCEL
+  ? path.join('/tmp', 'thanima_store.json')
+  : path.join(__dirname, 'data', 'store.json');
 
 function initInitialStore() {
   const store = {
@@ -41,19 +44,38 @@ function initInitialStore() {
     photoSubmissions: [],
     boatQuestions: JSON.parse(JSON.stringify(BOAT_GAME_QUESTIONS)),
     startingStations: JSON.parse(JSON.stringify(STARTING_STATIONS)),
-    version: 5
+    version: 9
   };
-  fs.mkdirSync(path.dirname(LOCAL_STORE_FILE), { recursive: true });
-  fs.writeFileSync(LOCAL_STORE_FILE, JSON.stringify(store, null, 2));
+  try {
+    fs.mkdirSync(path.dirname(LOCAL_STORE_FILE), { recursive: true });
+    fs.writeFileSync(LOCAL_STORE_FILE, JSON.stringify(store, null, 2));
+  } catch (err) {
+    try {
+      const fallbackFile = path.join('/tmp', 'thanima_store.json');
+      fs.writeFileSync(fallbackFile, JSON.stringify(store, null, 2));
+    } catch (_) {}
+  }
   return store;
 }
 
 function readLocalStore() {
   try {
-    if (!fs.existsSync(LOCAL_STORE_FILE)) {
+    let targetPath = LOCAL_STORE_FILE;
+    if (IS_VERCEL && !fs.existsSync(targetPath)) {
+      // Seed /tmp/thanima_store.json from packaged store.json if available
+      const packagedStore = path.join(__dirname, 'data', 'store.json');
+      if (fs.existsSync(packagedStore)) {
+        try {
+          const content = fs.readFileSync(packagedStore, 'utf-8');
+          fs.writeFileSync(targetPath, content, 'utf-8');
+        } catch (_) {}
+      }
+    }
+
+    if (!fs.existsSync(targetPath)) {
       return initInitialStore();
     }
-    const content = fs.readFileSync(LOCAL_STORE_FILE, 'utf-8');
+    const content = fs.readFileSync(targetPath, 'utf-8');
     const parsed = JSON.parse(content);
     if (!parsed.teams || parsed.teams.length !== 10) {
       console.log('Migrating store...');
@@ -89,7 +111,12 @@ function writeLocalStore(data) {
     fs.mkdirSync(path.dirname(LOCAL_STORE_FILE), { recursive: true });
     fs.writeFileSync(LOCAL_STORE_FILE, JSON.stringify(data, null, 2));
   } catch (err) {
-    console.error('Error writing local store:', err);
+    try {
+      const fallback = path.join('/tmp', 'thanima_store.json');
+      fs.writeFileSync(fallback, JSON.stringify(data, null, 2));
+    } catch (e2) {
+      console.error('Error writing local store:', err, e2);
+    }
   }
 }
 
