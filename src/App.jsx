@@ -34,7 +34,6 @@ export default function App() {
 
   // Modals
   const [profileOpen, setProfileOpen] = useState(false);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   // Toast / celebration message
@@ -131,30 +130,30 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex justify-center bg-bg text-white font-sans selection:bg-gold selection:text-bg">
-      <div className="w-full max-w-[440px] px-5 pb-10">
+      <div className="w-full max-w-md px-3.5 sm:px-5 pb-16 overflow-x-hidden">
         {/* Toast Alert */}
         {toast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm rounded-2xl border-2 border-gold bg-card/95 p-4 shadow-2xl backdrop-blur text-center text-sm font-bold text-gold animate-bounce">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm rounded-2xl border-2 border-gold bg-card/95 p-3.5 shadow-2xl backdrop-blur text-center text-xs sm:text-sm font-bold text-gold animate-bounce">
             {toast}
           </div>
         )}
 
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-gold/40 py-4">
-          <div className="flex items-center gap-3">
+        <header className="flex items-center justify-between border-b border-gold/40 py-3.5">
+          <div className="flex items-center gap-2.5">
             <img
               src="/logo.png"
               alt="Thanima Logo"
-              className="h-12 max-h-12 w-auto object-contain drop-shadow"
+              className="h-10 max-h-10 sm:h-12 sm:max-h-12 w-auto object-contain drop-shadow"
             />
             <div>
-              <p className="text-[10px] tracking-[0.2em] text-gold/90 font-semibold uppercase">
+              <p className="text-[10px] sm:text-[11px] tracking-[0.2em] text-gold/90 font-semibold uppercase">
                 NIDHIVETTA TREASURE HUNT
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {/* Leaderboard button */}
             <button
               onClick={() => setLeaderboardOpen(true)}
@@ -162,7 +161,7 @@ export default function App() {
               title="Live Leaderboard"
               className="p-2 text-gold hover:text-cream active:scale-90 transition rounded-full hover:bg-white/5"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
                 <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
                 <path d="M4 22h16" />
@@ -179,7 +178,7 @@ export default function App() {
               title="Team Profile"
               className="p-2 text-gold hover:text-cream active:scale-90 transition rounded-full hover:bg-white/5"
             >
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
               </svg>
@@ -188,7 +187,7 @@ export default function App() {
         </header>
 
         {/* KERALAM Letters Row with Mystery Tiger / 'M' Slot */}
-        <section className="mt-5 flex justify-between rounded-2xl border-2 border-ring bg-inset/60 p-3 shadow-inner">
+        <section className="mt-4 flex justify-between gap-1 rounded-2xl border-2 border-ring bg-inset/60 p-2.5 sm:p-3 shadow-inner">
           {WORD.map((letter, i) => {
             const isLastLetter = i === 6; // 'M'
             const isLit = i < done;
@@ -196,7 +195,7 @@ export default function App() {
             return (
               <div
                 key={i}
-                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 font-serif text-lg font-bold transition-all duration-700 overflow-hidden
+                className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 font-serif text-base sm:text-lg font-bold transition-all duration-700 overflow-hidden
                   ${
                     isLit
                       ? 'animate-glow border-cream bg-cream text-bg scale-105 shadow-lg'
@@ -420,37 +419,11 @@ export default function App() {
           )}
         </section>
 
-        {/* Actions (Map & Scan Station QR) - only shown when not finished */}
-        {!isFinished && (
-          <section className="mt-4 grid grid-cols-2 gap-3">
-            <a
-              href={currentTask?.mapUrl || 'https://www.google.com/maps/search/?api=1&query=VIT+Chennai'}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-24 flex-col items-center justify-center rounded-2xl bg-cream text-center text-bg active:scale-95 transition shadow-lg hover:bg-cream/90"
-            >
-              <span className="text-sm font-bold">Station Landmark</span>
-              <span className="mt-0.5 text-[11px] text-bg/70 leading-tight">
-                View Campus Map
-              </span>
-            </a>
-            <button
-              onClick={() => setScannerOpen(true)}
-              className="flex h-24 flex-col items-center justify-center rounded-2xl bg-crimson text-center active:scale-95 transition shadow-lg hover:bg-crimson/90"
-            >
-              <span className="text-sm font-bold text-white">Scan Marshal QR</span>
-              <span className="mt-0.5 text-[11px] text-gold leading-tight">
-                Verify Station Code
-              </span>
-            </button>
-          </section>
-        )}
-
         {/* Footer shortcut */}
-        <div className="mt-8 text-center text-xs text-white/30">
+        <div className="mt-8 text-center text-xs text-white/40">
           <button
             onClick={() => setLeaderboardOpen(true)}
-            className="hover:text-gold transition font-medium inline-flex items-center gap-1.5"
+            className="hover:text-gold transition font-medium inline-flex items-center gap-1.5 py-2 px-4 rounded-xl bg-card border border-white/10 active:scale-95 shadow"
           >
             <span>🏆</span> View Live Standings
           </button>
@@ -464,13 +437,6 @@ export default function App() {
           onAuthSuccess={handleAuthSuccess}
         />
       )}
-
-      {/* QR Scanner Modal */}
-      <QRScannerModal
-        isOpen={scannerOpen}
-        onClose={() => setScannerOpen(false)}
-        onScanSuccess={handleScanSuccess}
-      />
 
       {/* Leaderboard Modal */}
       <LeaderboardModal

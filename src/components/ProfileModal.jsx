@@ -40,8 +40,8 @@ export default function ProfileModal({ isOpen, onClose, team, member, onLogout }
           <div className="mt-3 rounded-xl bg-inset p-3 border border-white/10">
             <span className="text-[10px] uppercase tracking-wider text-white/50 block">Logged in as</span>
             <p className="font-semibold text-sm text-gold mt-0.5 flex items-center justify-between">
-              <span>{member.name} ({member.regNo})</span>
-              {member.isLeader && (
+              <span>{member.name}</span>
+              {(member.isLeader || member.is_leader) && (
                 <span className="text-[10px] bg-gold/20 text-gold px-2 py-0.5 rounded-full border border-gold/40">
                   Team Leader
                 </span>
@@ -69,7 +69,9 @@ export default function ProfileModal({ isOpen, onClose, team, member, onLogout }
               >
                 <div>
                   <span className="font-medium text-white">{m.name}</span>
-                  <span className="text-white/40 ml-2">({m.reg_no || m.regNo})</span>
+                  {(m.reg_no || m.regNo) && (
+                    <span className="text-white/40 ml-2">({m.reg_no || m.regNo})</span>
+                  )}
                 </div>
                 {(m.is_leader || m.isLeader) && (
                   <span className="text-[9px] text-gold font-bold uppercase tracking-wider">

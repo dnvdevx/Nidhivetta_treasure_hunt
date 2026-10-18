@@ -125,26 +125,26 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 overflow-y-auto">
-      <div className="w-full max-w-sm my-auto rounded-3xl border border-gold/40 bg-card p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3.5 sm:p-5 overflow-y-auto min-h-[100dvh]">
+      <div className="w-full max-w-sm sm:max-w-md my-auto rounded-3xl border border-gold/40 bg-card p-5 sm:p-6 shadow-2xl">
         <div className="text-center">
           <img
             src="/logo.png"
             alt="Thanima Logo"
-            className="h-16 max-h-16 mx-auto object-contain drop-shadow mb-2"
+            className="h-14 sm:h-16 max-h-16 mx-auto object-contain drop-shadow mb-2"
           />
-          <p className="text-[11px] tracking-[0.25em] text-gold/90 uppercase font-semibold">Nidhivetta Treasure Hunt</p>
+          <p className="text-[10px] sm:text-[11px] tracking-[0.25em] text-gold/90 uppercase font-semibold">Nidhivetta Treasure Hunt</p>
         </div>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-red-500/40 bg-red-950/80 p-3 text-xs text-red-200 leading-relaxed">
+          <div className="mt-4 rounded-xl border border-red-500/40 bg-red-950/80 p-3 text-xs text-red-200 leading-relaxed text-center">
             {error}
           </div>
         )}
 
         {/* STEP 1: Scan Station QR (Only if not already scanned or passed in via URL) */}
         {!stationQr ? (
-          <div className="mt-6 space-y-4">
+          <div className="mt-5 space-y-4">
             <div className="text-center p-3 rounded-2xl bg-inset border border-white/10">
               <span className="text-2xl block mb-1">📍</span>
               <h3 className="font-serif text-base font-bold text-white">Find Your Starting Station</h3>
@@ -155,8 +155,8 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
 
             {scanningCamera ? (
               <div className="space-y-3">
-                <div className="overflow-hidden rounded-2xl border-2 border-dashed border-gold/40 bg-inset p-2">
-                  <div id={scannerRegionId} className="w-full min-h-[240px]" />
+                <div className="overflow-hidden rounded-2xl border-2 border-dashed border-gold/40 bg-inset p-1.5">
+                  <div id={scannerRegionId} className="w-full min-h-[220px]" />
                 </div>
                 <button
                   type="button"
@@ -171,7 +171,7 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
                 <button
                   type="button"
                   onClick={startCameraScanner}
-                  className="w-full rounded-2xl bg-gold py-4 text-sm font-bold text-bg transition hover:bg-gold/90 active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                  className="w-full rounded-2xl bg-gold py-3.5 text-sm font-bold text-bg transition hover:bg-gold/90 active:scale-95 shadow-lg flex items-center justify-center gap-2"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 7V5a2 2 0 0 1 2-2h2" />
@@ -213,7 +213,7 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
           </div>
         ) : (
           /* STEP 2: Station Scanned! Prompt for Team Code */
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-center">
               <span className="text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -222,25 +222,29 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
                 Station QR Verified
               </span>
               <p className="text-[11px] text-white/60 mt-0.5">
-                Enter your assigned Team Code to enter the hunt:
+                Enter your secret Team Passcode to unlock entry:
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gold/90">
-                Team Code
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gold/90 text-center">
+                Secret Team Passcode
               </label>
               <input
                 type="text"
                 value={teamCode}
                 onChange={(e) => setTeamCode(e.target.value)}
-                placeholder="e.g. THANIMA-T1 or T1"
-                className="mt-1.5 w-full rounded-xl border border-white/20 bg-inset px-4 py-3.5 text-base text-white uppercase placeholder-white/30 focus:border-gold focus:outline-none font-mono text-center font-bold tracking-widest"
+                placeholder="Enter Passcode"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck="false"
+                inputMode="text"
+                className="mt-1.5 w-full rounded-xl border border-white/20 bg-inset px-4 py-3.5 text-base sm:text-lg text-white uppercase placeholder-white/25 focus:border-gold focus:outline-none font-mono text-center font-bold tracking-widest"
                 autoFocus
                 required
               />
               <p className="mt-1.5 text-[10px] text-white/50 text-center">
-                * Only the 2 teams assigned to this station are permitted to enter.
+                * Enter the secret team passcode provided by the Thanima organizers.
               </p>
             </div>
 
