@@ -26,10 +26,22 @@ export default function App() {
   }
 
   const [token, setToken] = useState(() => localStorage.getItem('thanima_token'));
-  const [team, setTeam] = useState(null);
-  const [member, setMember] = useState(null);
-  const [currentTask, setCurrentTask] = useState(null);
-  const [loading, setLoading] = useState(true);
+
+  // Load last saved offline state from localStorage so network drops never reset points or clues
+  const [cachedState] = useState(() => {
+    try {
+      const raw = localStorage.getItem('thanima_cached_state');
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const [team, setTeam] = useState(() => cachedState?.team || null);
+  const [member, setMember] = useState(() => cachedState?.member || null);
+  const [currentTask, setCurrentTask] = useState(() => cachedState?.currentTask || null);
+  const [loading, setLoading] = useState(() => !cachedState?.team && Boolean(localStorage.getItem('thanima_token')));
+  const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
 
   // Modals
   const [profileOpen, setProfileOpen] = useState(false);
@@ -45,6 +57,22 @@ export default function App() {
     return params.get('start_qr') || params.get('qr') || '';
   });
 
+  // Listen to browser online/offline events
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      if (token) syncTeamState();
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [token]);
+
   // Fetch or sync current team state
   const syncTeamState = async (authToken) => {
     const activeToken = authToken || token;
@@ -58,8 +86,10 @@ export default function App() {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
 
-      if (!res.ok) {
+      // Only true 401/403 authorization failures should clear session
+      if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('thanima_token');
+        localStorage.removeItem('thanima_cached_state');
         setToken(null);
         setTeam(null);
         setMember(null);
@@ -67,12 +97,33 @@ export default function App() {
         return;
       }
 
+      // If server returned a temporary non-ok error (e.g. 500, 502), preserve cached data
+      if (!res.ok) {
+        setIsOffline(true);
+        return;
+      }
+
       const data = await res.json();
       setTeam(data.team);
       setMember(data.member);
       setCurrentTask(data.currentTask);
+      setIsOffline(false);
+
+      // Persist to offline cache
+      try {
+        localStorage.setItem(
+          'thanima_cached_state',
+          JSON.stringify({
+            team: data.team,
+            member: data.member,
+            currentTask: data.currentTask
+          })
+        );
+      } catch (_) {}
     } catch (err) {
-      console.error('Failed to sync team state:', err);
+      // Network drop / offline: keep existing cached team state intact
+      console.warn('Network offline or sync failed, using cached state:', err);
+      setIsOffline(true);
     } finally {
       setLoading(false);
     }
@@ -81,7 +132,7 @@ export default function App() {
   useEffect(() => {
     syncTeamState();
 
-    // Poll team state every 5s so all teammates stay in instant sync
+    // Poll team state every 5s so all teammates stay in instant sync when online
     const interval = setInterval(() => {
       if (token) syncTeamState();
     }, 5000);
@@ -94,10 +145,18 @@ export default function App() {
     setTeam(team);
     setMember(member);
     setCurrentTask(currentTask);
+    setIsOffline(false);
+    try {
+      localStorage.setItem(
+        'thanima_cached_state',
+        JSON.stringify({ team, member, currentTask })
+      );
+    } catch (_) {}
   };
 
   const handleLogout = () => {
     localStorage.removeItem('thanima_token');
+    localStorage.removeItem('thanima_cached_state');
     setToken(null);
     setTeam(null);
     setMember(null);
@@ -187,6 +246,14 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {/* Offline indicator banner */}
+        {isOffline && (
+          <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/70 px-3 py-2 text-center text-xs text-amber-200 flex items-center justify-center gap-2 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+            <span>Offline / weak signal — Showing saved clues & points.</span>
+          </div>
+        )}
 
         {/* KERALAM Letters Row with Mystery Tiger / 'M' Slot */}
         <section className="mt-4 flex justify-between gap-1 rounded-2xl border-2 border-ring bg-inset/60 p-2.5 sm:p-3 shadow-inner">
@@ -476,7 +543,7 @@ export default function App() {
       </div>
 
       {/* Auth Modal (if no session or team) */}
-      {(!token || !team) && !loading && (
+      {!token && !loading && (
         <AuthModal
           initialStationQr={initialStationQr}
           onAuthSuccess={handleAuthSuccess}
