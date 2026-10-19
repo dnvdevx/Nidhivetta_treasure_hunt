@@ -1026,8 +1026,8 @@ export default function GameAdminPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono text-sm font-black text-white">{t.points || 0} pts</span>
-                            <span className="text-[10px] text-white/50 block">Step {t.current_step || 0} of 7</span>
+                            <span className="font-mono text-sm font-black text-gold">Step {t.current_step || 0} of 7</span>
+                            <span className="text-[10px] text-white/50 block">{isFinished ? 'Conquered' : `${t.current_step || 0} Letters`}</span>
                           </div>
                         </div>
 

@@ -53,7 +53,7 @@ export default function ProfileModal({ isOpen, onClose, team, member, onLogout }
         )}
 
         <div className="mt-4 space-y-3">
-          <Row label="Team points" value={`${points} pts`} />
+          <Row label="Hunt Status" value={done >= WORD.length ? 'All Letters Found' : `Trial ${done + 1} of 7`} />
           <Row label="Tasks completed" value={`${done} / ${WORD.length}`} />
           <Row label="Letters found" value={WORD.slice(0, done).join(' ') || '—'} />
         </div>

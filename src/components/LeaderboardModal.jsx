@@ -100,7 +100,9 @@ export default function LeaderboardModal({ isOpen, onClose, currentTeamId }) {
                   </div>
 
                   <div className="text-right">
-                    <span className="font-bold text-sm text-gold">{t.points} pts</span>
+                    <span className="font-bold text-xs text-gold">
+                      {t.current_step >= 7 ? '7/7 Letters' : `Step ${t.current_step}/7`}
+                    </span>
                     {t.completed_at && (
                       <p className="text-[10px] text-emerald-400 font-medium">Finished</p>
                     )}

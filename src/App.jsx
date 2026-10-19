@@ -267,7 +267,7 @@ export default function App() {
         {isOffline && (
           <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/70 px-3 py-2 text-center text-xs text-amber-200 flex items-center justify-center gap-2 shadow-sm">
             <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
-            <span>Offline / weak signal — Showing saved clues & points.</span>
+            <span>Offline / weak signal — Showing saved game & clues.</span>
           </div>
         )}
 
@@ -345,16 +345,19 @@ export default function App() {
             )}
           </div>
 
-          <div className="mt-4 rounded-xl bg-inset px-6 py-5 flex items-center justify-between border border-white/5">
+          <div className="mt-4 rounded-xl bg-inset px-6 py-4 flex items-center justify-between border border-white/5">
             <div>
-              <p className="text-4xl font-bold leading-none text-white">{points}</p>
-              <p className="mt-1.5 text-xs text-white/60">Total Points</p>
+              <p className="text-2xl font-bold leading-none text-white">{done} of {WORD.length}</p>
+              <p className="mt-1.5 text-xs text-white/60">Trials Conquered</p>
             </div>
             <div className="text-right">
-              <span className="text-sm font-semibold text-gold">
-                {done} of {WORD.length}
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
+                isFinished
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-gold/15 text-gold border-gold/30'
+              }`}>
+                {isFinished ? 'Completed' : `Trial ${Math.min(done + 1, WORD.length)} of ${WORD.length}`}
               </span>
-              <p className="text-xs text-white/50">Trials Conquered</p>
             </div>
           </div>
 
