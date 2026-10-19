@@ -185,14 +185,25 @@ export default function App() {
       if (serverStep < localHighest) {
         console.warn(`Server returned stale step ${serverStep}, but client verified at step ${localHighest}. Protecting progress.`);
         setIsOffline(false);
-        // Self-heal the server container with the client's verified step
+        const approvedPhotoTargets = [];
+        try {
+          const savedApproved = localStorage.getItem('thanima_approved_photos');
+          if (savedApproved) {
+            approvedPhotoTargets.push(...Object.keys(JSON.parse(savedApproved)).map(Number));
+          }
+        } catch (_) {}
+
+        // Self-heal the server container with the client's verified step and approved photos
         fetch('/api/teams/sync-progress', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${activeToken}`
           },
-          body: JSON.stringify({ step: localHighest })
+          body: JSON.stringify({
+            step: localHighest,
+            approvedPhotoTargets
+          })
         })
           .then((r) => r.json())
           .then((healed) => {
@@ -649,6 +660,7 @@ export default function App() {
                 <div className="mt-3 pt-3 border-t border-white/10">
                   <PhotoGameView
                     task={currentTask}
+                    team={team}
                     onSyncState={syncTeamState}
                   />
                 </div>

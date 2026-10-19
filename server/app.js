@@ -27,6 +27,7 @@ import {
   updateStartingStation,
   denyTeamTask,
   advanceTeamToStep,
+  syncTeamApprovedPhotoTargets,
   isSupabaseConfigured
 } from './db.js';
 import {
@@ -178,7 +179,7 @@ app.get('/api/teams/me', authenticateToken, async (req, res) => {
 // 4b. Sync / restore team progress from verified client (heals ephemeral serverless instances)
 app.post('/api/teams/sync-progress', authenticateToken, async (req, res) => {
   try {
-    const { step } = req.body;
+    const { step, approvedPhotoTargets } = req.body;
     if (typeof step !== 'number' || step < 0 || step > 7) {
       return res.status(400).json({ error: 'Valid step number required' });
     }
@@ -188,6 +189,10 @@ app.post('/api/teams/sync-progress', authenticateToken, async (req, res) => {
 
     if (step > (team.current_step || 0)) {
       await advanceTeamToStep(team.id, step);
+    }
+
+    if (Array.isArray(approvedPhotoTargets) && approvedPhotoTargets.length > 0) {
+      await syncTeamApprovedPhotoTargets(team.id, approvedPhotoTargets);
     }
 
     const updated = await getTeamById(req.user.teamId);
@@ -228,7 +233,7 @@ app.post('/api/tasks/scan', authenticateToken, async (req, res) => {
 // 6. PHOTO GAME: Submit photo
 app.post('/api/photo-game/submit', authenticateToken, async (req, res) => {
   try {
-    const { targetIndex, imageUrl } = req.body;
+    const { targetIndex, imageUrl, approvedTargets } = req.body;
     const targetIdx = Number(targetIndex);
 
     if (isNaN(targetIdx) || !imageUrl) {
@@ -239,7 +244,8 @@ app.post('/api/photo-game/submit', authenticateToken, async (req, res) => {
       teamId: req.user.teamId,
       targetIndex: targetIdx,
       imageUrl,
-      participantName: req.user.memberName
+      participantName: req.user.memberName,
+      approvedTargets: Array.isArray(approvedTargets) ? approvedTargets : []
     });
 
     const team = await getTeamById(req.user.teamId);

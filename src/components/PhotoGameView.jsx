@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getTeamPhotoTargets } from '../utils/photoTargets';
 
 // Helper to compress client-side captured photo to lightweight ~800px JPEG
 // Uses URL.createObjectURL instead of loading raw 20MB files into base64 RAM
@@ -55,7 +56,7 @@ function compressImage(file) {
   });
 }
 
-export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
+export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState }) {
   const photoState = task?.photoGameState || {
     targets: [],
     submissions: [],
@@ -212,6 +213,10 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
 
       const token = localStorage.getItem('thanima_token');
 
+      const approvedTargetIndices = Object.keys(localApproved)
+        .map(Number)
+        .filter((idx) => !rejectedIndices.has(idx));
+
       const res = await fetch('/api/photo-game/submit', {
         method: 'POST',
         headers: {
@@ -220,7 +225,8 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
         },
         body: JSON.stringify({
           targetIndex: targetIdx,
-          imageUrl: base64
+          imageUrl: base64,
+          approvedTargets: approvedTargetIndices
         })
       });
 
@@ -235,7 +241,6 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
     }
   };
 
-  const targets = photoState.targets || [];
   const rejectedIndices = new Set(
     (photoState.submissions || [])
       .filter((s) => s.status === 'rejected')
@@ -256,6 +261,32 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
     cleanLocalApprovedCount
   );
   const isAllApproved = approvedCount >= 3;
+
+  // CRITICAL RESILIENCE: Never allow the UI to hide an unlocked or rejected target!
+  // If Target 0 is approved, Target 1 MUST be visible (even if rejected, it needs the retake button!).
+  // If Target 0 and 1 are approved, Target 2 MUST be visible!
+  const teamNumber = team?.team_number || task?.teamNumber || task?.team_number || 1;
+  const allTeamTargets = (photoState.allTargets && photoState.allTargets.length > 0)
+    ? photoState.allTargets
+    : getTeamPhotoTargets(teamNumber);
+
+  const hasTarget1Activity = (photoState.submissions || []).some((s) => Number(s.target_index) === 1) || Boolean(localUploads[1]);
+  const hasTarget2Activity = (photoState.submissions || []).some((s) => Number(s.target_index) === 2) || Boolean(localUploads[2]);
+
+  let minVisible = approvedCount + 1;
+  if (hasTarget1Activity) minVisible = Math.max(minVisible, 2);
+  if (hasTarget2Activity) minVisible = Math.max(minVisible, 3);
+  const visibleCount = Math.min(minVisible, allTeamTargets.length);
+
+  const targets = allTeamTargets.slice(0, visibleCount).map((t) => {
+    const fromServer = (photoState.targets || []).find((st) => Number(st.index) === Number(t.index));
+    return fromServer || {
+      index: t.index,
+      title: t.title,
+      clueImage: t.clueImage,
+      description: t.description
+    };
+  });
 
   return (
     <div className="space-y-4">

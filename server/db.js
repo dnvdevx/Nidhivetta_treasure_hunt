@@ -296,8 +296,15 @@ export function getTeamCurrentTask(team, localStore = null) {
     }
 
     const approvedCount = teamSubmissions.filter((s) => s.status === 'approved').length;
-    // Sequential: show targets one after the other (up to approvedCount + 1)
-    const visibleCount = Math.min(approvedCount + 1, allTargets.length);
+    // Sequential: show targets one after the other (up to approvedCount + 1), BUT also ensure any target that has activity (pending, approved, or rejected) is always visible!
+    const maxTouchedIndex = teamSubmissions.reduce(
+      (max, s) => Math.max(max, Number(s.target_index) || 0),
+      -1
+    );
+    const visibleCount = Math.min(
+      Math.max(approvedCount + 1, maxTouchedIndex + 1),
+      allTargets.length
+    );
     // Sanitize targets sent to participants: include clueImage, exclude locationName so participants cannot cheat via devtools
     const visibleTargets = allTargets.slice(0, visibleCount).map((t) => ({
       index: t.index,
@@ -306,8 +313,18 @@ export function getTeamCurrentTask(team, localStore = null) {
       description: t.description
     }));
 
+    const sanitizedAllTargets = allTargets.map((t) => ({
+      index: t.index,
+      title: t.title,
+      clueImage: t.clueImage,
+      description: t.description
+    }));
+
+    baseTask.team_number = team.team_number;
+    baseTask.teamNumber = team.team_number;
     baseTask.photoGameState = {
       targets: visibleTargets,
+      allTargets: sanitizedAllTargets,
       allTargetsCount: allTargets.length,
       currentActiveIndex: Math.min(approvedCount, allTargets.length - 1),
       submissions: teamSubmissions,
@@ -924,7 +941,7 @@ export async function updateBoatQuestion(teamNumber, { question, answer, questio
 }
 
 // PHOTO GAME: Submit a photo for a specific target index
-export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, participantName }) {
+export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, participantName, approvedTargets = [] }) {
   const team = await getTeamById(teamId);
   if (!team) throw new Error('Team not found');
 
@@ -961,12 +978,42 @@ export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, partici
     );
     store.photoSubmissions.push(newSubmission);
 
-    // If re-submitting a target, remove from approved_photo_targets so it is pending fresh review
     const stTeam = store.teams?.find((t) => t.id === team.id || String(t.team_number) === String(team.team_number));
-    if (stTeam && Array.isArray(stTeam.approved_photo_targets)) {
+    if (stTeam) {
+      if (!stTeam.approved_photo_targets) stTeam.approved_photo_targets = [];
+      // Merge in any previously approved targets from client to preserve them across ephemeral lambdas
+      if (Array.isArray(approvedTargets)) {
+        for (const idx of approvedTargets) {
+          const numIdx = Number(idx);
+          if (numIdx !== targetIdx && !stTeam.approved_photo_targets.some((x) => Number(x) === numIdx)) {
+            stTeam.approved_photo_targets.push(numIdx);
+          }
+        }
+      }
+      // If re-submitting a target, remove from approved_photo_targets so it is pending fresh review
       stTeam.approved_photo_targets = stTeam.approved_photo_targets.filter(
         (idx) => Number(idx) !== targetIdx
       );
+
+      // Ensure past approved targets have corresponding approved records in store.photoSubmissions
+      for (const approvedIdx of stTeam.approved_photo_targets) {
+        const numApprovedIdx = Number(approvedIdx);
+        let existingSub = store.photoSubmissions.find(
+          (s) => s.team_id === team.id && Number(s.target_index) === numApprovedIdx
+        );
+        if (!existingSub) {
+          store.photoSubmissions.push({
+            id: `approved-${team.id}-${numApprovedIdx}`,
+            team_id: team.id,
+            team_number: team.team_number,
+            team_name: team.name,
+            target_index: numApprovedIdx,
+            status: 'approved',
+            submitted_at: now,
+            reviewed_at: now
+          });
+        }
+      }
     }
 
     writeLocalStore(store);
@@ -1258,3 +1305,46 @@ export async function advanceTeamToStep(teamId, targetStep) {
   team.updated_at = now;
   return team;
 }
+
+export async function syncTeamApprovedPhotoTargets(teamId, approvedTargets = []) {
+  if (!Array.isArray(approvedTargets) || approvedTargets.length === 0) return null;
+  const store = isSupabaseConfigured ? null : readLocalStore();
+  if (store) {
+    const stTeam = store.teams.find((t) => t.id === teamId || String(t.team_number) === String(teamId));
+    if (stTeam) {
+      if (!Array.isArray(stTeam.approved_photo_targets)) {
+        stTeam.approved_photo_targets = [];
+      }
+      for (const idx of approvedTargets) {
+        const numIdx = Number(idx);
+        if (!stTeam.approved_photo_targets.some((x) => Number(x) === numIdx)) {
+          stTeam.approved_photo_targets.push(numIdx);
+        }
+      }
+      if (!store.photoSubmissions) store.photoSubmissions = [];
+      const now = new Date().toISOString();
+      for (const idx of stTeam.approved_photo_targets) {
+        let sub = store.photoSubmissions.find(
+          (s) => s.team_id === stTeam.id && Number(s.target_index) === Number(idx)
+        );
+        if (!sub) {
+          store.photoSubmissions.push({
+            id: `approved-${stTeam.id}-${idx}`,
+            team_id: stTeam.id,
+            team_number: stTeam.team_number,
+            team_name: stTeam.name,
+            target_index: Number(idx),
+            status: 'approved',
+            submitted_at: now,
+            reviewed_at: now
+          });
+        } else if (sub.status !== 'rejected') {
+          sub.status = 'approved';
+        }
+      }
+      writeLocalStore(store);
+    }
+  }
+  return true;
+}
+
