@@ -241,12 +241,9 @@ const html = `<!DOCTYPE html>
 const filePath = path.join(outputDir, 'print-boat-tags.html');
 fs.writeFileSync(filePath, html, 'utf-8');
 
-// Also write to public/qrs for Vite dev server static serving
-const publicQrsDir = path.join(__dirname, '..', 'public', 'qrs');
-fs.mkdirSync(publicQrsDir, { recursive: true });
-fs.writeFileSync(path.join(publicQrsDir, 'print-boat-tags.html'), html, 'utf-8');
-
-console.log(`✓ Generated 20 boat tags in: ${filePath} & public/qrs/print-boat-tags.html`);
+// Never write this sheet into public/: it lists every boat code. Organizers open it through
+// the authenticated /api/admin/print/boat-tags endpoint instead.
+console.log(`✓ Generated 20 boat tags in: ${filePath}`);
 console.log(`\n======================================================`);
 console.log(`📋 SUMMARY OF 20 FLEET CODES:`);
 console.log(`======================================================`);

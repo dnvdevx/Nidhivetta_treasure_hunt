@@ -19,12 +19,12 @@ A full-stack, mobile-friendly treasure hunt web application designed for **Thani
 4. **Live Leaderboard**:
    - Auto-updating standings ranked by letters found, completion speed, and points.
 5. **Organizers / Admin Desk**:
-   - Accessible via secret passcode (`thanima-admin-2026`).
+   - Open `/game_admin` and sign in with a master organizer password or a station passcode.
    - Instant printable QR code stations with high-resolution QR images for physical placement.
    - Quick-reset capability for testing or stage re-runs.
-6. **Vercel & Supabase Ready**:
-   - Works immediately out-of-the-box locally with a built-in JSON adapter.
-   - Connects seamlessly to **Supabase PostgreSQL** in production.
+6. **Vercel + Upstash Redis**:
+   - Works immediately out-of-the-box locally with a built-in JSON file store.
+   - In production, all game state lives in **Upstash Redis**, shared by every serverless instance.
    - Configured for Vercel Serverless Functions (`/api`).
 
 ---
@@ -45,35 +45,33 @@ npm run dev
 
 ---
 
-## 🗄️ Supabase Setup (Production Database)
+## 🗄️ Production Database (Upstash Redis) — required on Vercel
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. Go to the **SQL Editor** tab in your Supabase Dashboard.
-3. Copy and run the entire script in [supabase/schema.sql](supabase/schema.sql).
-4. Go to **Project Settings -> API** and copy:
-   - `Project URL`
-   - `anon public` key (or `service_role` secret)
-5. Add these to your `.env` or Vercel Environment Variables:
-```env
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-JWT_SECRET=your-secure-jwt-secret
-ADMIN_KEY=thanima-admin-2026
-```
+Vercel runs the API as serverless functions that do **not** share a filesystem. Without a shared
+database every instance keeps its own copy of the game and team progress appears to jump backwards.
+
+1. In the Vercel dashboard open the project → **Storage** → **Create Database** → **Upstash Redis** (free tier is enough).
+2. Connect it to this project for all environments. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically
+   (`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` also work).
+3. Redeploy, then open `/api/health` — `database` must say `Upstash Redis (shared)`.
 
 ---
 
 ## ☁️ Deploying to Vercel
 
-1. Push this repository to GitHub.
+1. Push this repository to GitHub (keep the repository **private**: it contains station QR codes and boat codes).
 2. In Vercel, click **Add New... -> Project** and import your repository.
 3. In the project settings:
    - **Framework Preset**: Vite
    - **Root Directory**: `./`
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
-4. Add your Environment Variables (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `JWT_SECRET`, `ADMIN_KEY`).
-5. Click **Deploy**!
+4. Add Environment Variables:
+   - `JWT_SECRET` — a long random string.
+   - `MASTER_ADMIN_PASSWORDS` — comma-separated master organizer passwords.
+   - Optional station passcode overrides: `STATION_PASSCODE_HOT_N_COLD`, `STATION_PASSCODE_JIGSAW`,
+     `STATION_PASSCODE_PHOTO_GAME`, `STATION_PASSCODE_MOVIE_GAME`, `STATION_PASSCODE_BOAT_GAME`, `STATION_PASSCODE_FINAL_GAME`.
+5. Connect Upstash Redis (see above) and click **Deploy**!
    - Your frontend will be served statically from the global CDN edge.
    - Requests to `/api/*` will automatically be routed to the Serverless Function in `/api/index.js`.
 
@@ -91,4 +89,4 @@ ADMIN_KEY=thanima-admin-2026
 | 5 | **A** | Aroma of Feasts | Food Court / Gazebo Area | `THANIMA-KERALAM-A-6025` |
 | 6 | **M** | The Final Crown (Makutam) | Thanima Main Stage / Auditorium | `THANIMA-KERALAM-M-3148` |
 
-*(Organizers can also generate custom QR tokens directly from `server/tasksData.js` or through the Supabase `tasks` table!)*
+*(Organizers can also generate custom QR tokens directly from `server/tasksData.js`.)*

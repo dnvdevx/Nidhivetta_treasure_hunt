@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import AuthModal from './components/AuthModal';
 import QRScannerModal from './components/QRScannerModal';
 import LeaderboardModal from './components/LeaderboardModal';
@@ -8,58 +8,44 @@ import BoatGameView from './components/BoatGameView';
 import GameRulesCard from './components/GameRulesCard';
 import ErrorBoundary from './components/ErrorBoundary';
 
-import GameAdminPage from './components/GameAdminPage';
+// Loaded only on /game_admin so the player bundle never contains organizer data
+// (photo location names, Jigsaw envelope numbers, boat locations).
+const GameAdminPage = lazy(() => import('./components/GameAdminPage'));
 
 const WORD = ['K', 'E', 'R', 'A', 'L', 'A', 'M'];
 const POINTS_PER_TASK = 150;
 
-// Lightweight offline serializer: strips heavy base64 images so localStorage stays tiny (<3KB)
-// and tracks monotonic highest step so progress NEVER resets backwards
+// Keys holding per-device game caches that must be wiped when a team is reset or logs out.
+const LOCAL_GAME_KEYS = [
+  'thanima_cached_state',
+  'thanima_highest_step',
+  'thanima_approved_photos',
+  'thanima_photo_submissions',
+  'thanima_offline_cache',
+  'thanima_boat_claimed_num',
+  'thanima_boat_question_text',
+  'thanima_boat_question_code'
+];
+
+function clearLocalGameCache() {
+  try {
+    LOCAL_GAME_KEYS.forEach((k) => localStorage.removeItem(k));
+    for (let i = 0; i < 5; i++) {
+      localStorage.removeItem(`thanima_photo_upload_${i}`);
+      sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+    }
+  } catch (_) {}
+}
+
+// Offline cache so a weak signal still shows the last known clue. It is only ever a display
+// fallback: whenever the server answers, the server's state wins.
 function saveToOfflineCache(team, member, currentTask) {
   if (!team) return;
   try {
-    const rawStep = typeof team.current_step === 'number' ? team.current_step : 0;
-    const prevHighest = parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0;
-    const newHighest = Math.max(rawStep, prevHighest);
-
-    // Lock the highest step ever reached into localStorage
-    localStorage.setItem('thanima_highest_step', String(newHighest));
-
-    let cleanTask = currentTask;
-    if (currentTask && currentTask.photoGameState) {
-      cleanTask = {
-        ...currentTask,
-        photoGameState: {
-          ...currentTask.photoGameState,
-          submissions: (currentTask.photoGameState.submissions || []).map((s) => ({
-            ...s,
-            image_url: null // Strip heavy base64 from localStorage
-          }))
-        }
-      };
-    }
-
-    const secureTeam = {
-      ...team,
-      current_step: newHighest
-    };
-
     localStorage.setItem(
       'thanima_cached_state',
-      JSON.stringify({
-        team: secureTeam,
-        member,
-        currentTask: cleanTask,
-        updatedAt: Date.now()
-      })
+      JSON.stringify({ team, member, currentTask, updatedAt: Date.now() })
     );
-
-    // Save backup per-step task clue so any reached step can be recovered
-    if (cleanTask && typeof rawStep === 'number') {
-      try {
-        localStorage.setItem(`thanima_step_task_${rawStep}`, JSON.stringify(cleanTask));
-      } catch (_) {}
-    }
   } catch (err) {
     console.warn('Could not write to localStorage cache:', err);
   }
@@ -74,29 +60,20 @@ export default function App() {
       new URLSearchParams(window.location.search).has('game_admin'));
 
   if (isGameAdmin) {
-    return <GameAdminPage />;
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-bg" />}>
+        <GameAdminPage />
+      </Suspense>
+    );
   }
 
   const [token, setToken] = useState(() => localStorage.getItem('thanima_token'));
 
-  // Load last saved offline state from localStorage so network drops never reset progress or clues
+  // Load last saved offline state from localStorage so a network drop still shows the clue
   const [cachedState] = useState(() => {
     try {
       const raw = localStorage.getItem('thanima_cached_state');
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed?.team) {
-        const highest = parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0;
-        if (highest > (parsed.team.current_step || 0)) {
-          parsed.team.current_step = highest;
-          const taskBackup = localStorage.getItem(`thanima_step_task_${highest}`);
-          if (taskBackup) {
-            try {
-              parsed.currentTask = JSON.parse(taskBackup);
-            } catch (_) {}
-          }
-        }
-      }
-      return parsed;
+      return raw ? JSON.parse(raw) : null;
     } catch (_) {
       return null;
     }
@@ -107,6 +84,10 @@ export default function App() {
   const [currentTask, setCurrentTask] = useState(() => cachedState?.currentTask || null);
   const [loading, setLoading] = useState(() => !cachedState?.team && Boolean(localStorage.getItem('thanima_token')));
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== 'undefined' && !navigator.onLine);
+
+  // Incremented on every sync request and every local state change, so a slow poll response
+  // that started before a scan/approval can never overwrite the newer state.
+  const syncSeqRef = useRef(0);
 
   // Modals
   const [profileOpen, setProfileOpen] = useState(false);
@@ -121,6 +102,69 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.get('start_qr') || params.get('qr') || '';
   });
+
+  const handleLogout = () => {
+    syncSeqRef.current++;
+    localStorage.removeItem('thanima_token');
+    clearLocalGameCache();
+    setToken(null);
+    setTeam(null);
+    setMember(null);
+    setCurrentTask(null);
+    setProfileOpen(false);
+  };
+
+  // Fetch current team state. The server is the single source of truth.
+  const syncTeamState = async (authToken) => {
+    const activeToken = authToken || token;
+    if (!activeToken) {
+      setLoading(false);
+      return;
+    }
+
+    const seq = ++syncSeqRef.current;
+    try {
+      const res = await fetch('/api/teams/me', {
+        headers: { Authorization: `Bearer ${activeToken}` }
+      });
+      if (seq !== syncSeqRef.current) return;
+
+      // Invalid or expired session (or team removed): send the player back to the entry screen
+      if (res.status === 401 || res.status === 403 || res.status === 404) {
+        handleLogout();
+        return;
+      }
+      if (!res.ok) {
+        setIsOffline(true);
+        return;
+      }
+
+      const data = await res.json();
+      if (seq !== syncSeqRef.current || !data || !data.team) return;
+
+      // Team reset by organizers: drop every per-device cache (photos, boat claim, etc.)
+      const serverResetAt = data.team.reset_at;
+      const cachedResetAt = localStorage.getItem('thanima_team_reset_at');
+      if (serverResetAt && serverResetAt !== cachedResetAt) {
+        console.warn('Team reset by organizers detected. Clearing local game cache.');
+        clearLocalGameCache();
+        try {
+          localStorage.setItem('thanima_team_reset_at', serverResetAt);
+        } catch (_) {}
+      }
+
+      setTeam(data.team);
+      if (data.member) setMember(data.member);
+      setCurrentTask(data.currentTask || null);
+      setIsOffline(false);
+      saveToOfflineCache(data.team, data.member || member, data.currentTask || null);
+    } catch (err) {
+      console.warn('Network offline or sync failed, using cached state:', err);
+      setIsOffline(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Listen to browser online/offline events
   useEffect(() => {
@@ -138,159 +182,6 @@ export default function App() {
     };
   }, [token]);
 
-  // Fetch or sync current team state
-  const syncTeamState = async (authToken) => {
-    const activeToken = authToken || token;
-    if (!activeToken) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/teams/me', {
-        headers: { Authorization: `Bearer ${activeToken}` }
-      });
-
-      // DO NOT aggressively wipe session on network drop or transient errors
-      if (res.status === 401 || res.status === 403) {
-        const hasCachedTeam = Boolean(localStorage.getItem('thanima_cached_state'));
-        if (!hasCachedTeam) {
-          localStorage.removeItem('thanima_token');
-          localStorage.removeItem('thanima_highest_step');
-          setToken(null);
-          setTeam(null);
-          setMember(null);
-          setCurrentTask(null);
-        } else {
-          setIsOffline(true);
-        }
-        return;
-      }
-
-      if (!res.ok) {
-        setIsOffline(true);
-        return;
-      }
-
-      const data = await res.json();
-      if (!data || !data.team) return;
-
-      const serverTeam = data.team;
-      const serverStep = typeof serverTeam.current_step === 'number' ? serverTeam.current_step : 0;
-      const serverResetAt = serverTeam.reset_at;
-      const cachedResetAt = localStorage.getItem('thanima_team_reset_at');
-
-      // CRITICAL RESET DETECTION: Check if team was reset by organizers
-      const isResetDetected = Boolean(
-        serverResetAt &&
-        (!cachedResetAt || new Date(serverResetAt).getTime() > new Date(cachedResetAt).getTime())
-      ) || (serverStep === 0 && (serverTeam.points === 0 || !serverTeam.points) && (team?.current_step > 0 || parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) > 0));
-
-      if (isResetDetected) {
-        console.warn('Team reset by organizers detected. Purging local cache and setting step to 0.');
-        try {
-          localStorage.removeItem('thanima_highest_step');
-          localStorage.removeItem('thanima_approved_photos');
-          localStorage.removeItem('thanima_photo_submissions');
-          localStorage.removeItem('thanima_offline_cache');
-          localStorage.removeItem('thanima_boat_claimed_num');
-          localStorage.removeItem('thanima_boat_question_text');
-          localStorage.removeItem('thanima_boat_question_code');
-          for (let i = 0; i < 5; i++) {
-            localStorage.removeItem(`thanima_photo_upload_${i}`);
-            sessionStorage.removeItem(`thanima_photo_upload_${i}`);
-          }
-          if (serverResetAt) {
-            localStorage.setItem('thanima_team_reset_at', serverResetAt);
-          }
-        } catch (_) {}
-
-        setTeam(serverTeam);
-        if (data.member) setMember(data.member);
-        setCurrentTask(data.currentTask || null);
-        setIsOffline(false);
-        saveToOfflineCache(serverTeam, data.member || member, data.currentTask || null);
-        setLoading(false);
-        return;
-      }
-
-      const localHighest = Math.max(
-        parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0,
-        team?.current_step || 0
-      );
-
-      // PROGRESS SHIELD (only active when NOT reset):
-      if (serverStep < localHighest) {
-        console.warn(`Server returned stale step ${serverStep}, but client verified at step ${localHighest}. Protecting progress.`);
-        setIsOffline(false);
-        const approvedPhotoTargets = [];
-        try {
-          const savedApproved = localStorage.getItem('thanima_approved_photos');
-          if (savedApproved) {
-            approvedPhotoTargets.push(...Object.keys(JSON.parse(savedApproved)).map(Number));
-          }
-        } catch (_) {}
-
-        // Self-heal the server container with the client's verified step and approved photos
-        fetch('/api/teams/sync-progress', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${activeToken}`
-          },
-          body: JSON.stringify({
-            step: localHighest,
-            approvedPhotoTargets,
-            clientResetAt: cachedResetAt
-          })
-        })
-          .then((r) => r.json())
-          .then((healed) => {
-            if (healed && healed.wasReset) {
-              console.warn('Server confirmed team reset. Purging local storage.');
-              try {
-                localStorage.removeItem('thanima_highest_step');
-                localStorage.removeItem('thanima_approved_photos');
-                localStorage.removeItem('thanima_photo_submissions');
-                localStorage.removeItem('thanima_offline_cache');
-                localStorage.removeItem('thanima_boat_claimed_num');
-                localStorage.removeItem('thanima_boat_question_text');
-                localStorage.removeItem('thanima_boat_question_code');
-                for (let i = 0; i < 5; i++) {
-                  localStorage.removeItem(`thanima_photo_upload_${i}`);
-                  sessionStorage.removeItem(`thanima_photo_upload_${i}`);
-                }
-                if (healed.team?.reset_at) {
-                  localStorage.setItem('thanima_team_reset_at', healed.team.reset_at);
-                }
-              } catch (_) {}
-              if (healed.team) setTeam(healed.team);
-              if (healed.currentTask) setCurrentTask(healed.currentTask);
-              saveToOfflineCache(healed.team, data.member || member, healed.currentTask || null);
-            } else if (healed && healed.team && healed.team.current_step >= localHighest) {
-              setTeam(healed.team);
-              if (healed.currentTask) setCurrentTask(healed.currentTask);
-              saveToOfflineCache(healed.team, data.member || member, healed.currentTask || currentTask);
-            }
-          })
-          .catch(() => {});
-        return;
-      }
-
-      // Server is at or ahead of local state -> Accept new state & persist
-      setTeam(serverTeam);
-      if (data.member) setMember(data.member);
-      if (data.currentTask) setCurrentTask(data.currentTask);
-      setIsOffline(false);
-      saveToOfflineCache(serverTeam, data.member || member, data.currentTask);
-    } catch (err) {
-      console.warn('Network offline or sync failed, using cached state:', err);
-      setIsOffline(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     syncTeamState();
 
@@ -302,41 +193,17 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token]);
 
-  // Always ensure any advancement in team.current_step is locked into localStorage
-  useEffect(() => {
-    if (team && typeof team.current_step === 'number') {
-      saveToOfflineCache(team, member, currentTask);
-    }
-  }, [team?.current_step]);
-
   const handleAuthSuccess = ({ team, member, currentTask }) => {
+    syncSeqRef.current++;
     setToken(localStorage.getItem('thanima_token'));
     setTeam(team);
     setMember(member);
     setCurrentTask(currentTask);
     setIsOffline(false);
+    try {
+      if (team?.reset_at) localStorage.setItem('thanima_team_reset_at', team.reset_at);
+    } catch (_) {}
     saveToOfflineCache(team, member, currentTask);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('thanima_token');
-    localStorage.removeItem('thanima_cached_state');
-    localStorage.removeItem('thanima_highest_step');
-    localStorage.removeItem('thanima_approved_photos');
-    for (let i = 0; i < 3; i++) {
-      try {
-        localStorage.removeItem(`thanima_photo_upload_${i}`);
-        sessionStorage.removeItem(`thanima_photo_upload_${i}`);
-      } catch (_) {}
-    }
-    localStorage.removeItem('thanima_boat_claimed_num');
-    localStorage.removeItem('thanima_boat_question_text');
-    localStorage.removeItem('thanima_boat_question_code');
-    setToken(null);
-    setTeam(null);
-    setMember(null);
-    setCurrentTask(null);
-    setProfileOpen(false);
   };
 
   const showToast = (msg) => {
@@ -346,6 +213,7 @@ export default function App() {
 
   const handleScanSuccess = (scanData) => {
     if (scanData.team) {
+      syncSeqRef.current++;
       setTeam(scanData.team);
       if (scanData.currentTask) {
         setCurrentTask(scanData.currentTask);
@@ -444,7 +312,7 @@ export default function App() {
                 key={i}
                 onClick={() => {
                   if (isLastLetter && isMRevealed) {
-                    setPreviewImage('/images/final-clue.png');
+                    if (currentTask?.finalClueImage) setPreviewImage(currentTask.finalClueImage);
                   }
                 }}
                 className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 font-serif text-base sm:text-lg font-bold transition-all duration-700 overflow-hidden
@@ -483,7 +351,7 @@ export default function App() {
               MYSTERY UNLOCKED: Letter "M" has materialized on your board!
             </p>
             <button
-              onClick={() => setPreviewImage('/images/final-clue.png')}
+              onClick={() => currentTask?.finalClueImage && setPreviewImage(currentTask.finalClueImage)}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-bg bg-gold px-3.5 py-1.5 rounded-xl shadow-md hover:bg-gold/90 transition active:scale-95"
             >
               View Secret "M" Clue Map
@@ -565,8 +433,8 @@ export default function App() {
                       Crown of Makutam Unlocked!
                     </p>
                     <p className="text-xs text-white/80 leading-relaxed max-w-sm mx-auto">
-                      Phenomenal speed! Your team is the <strong>first</strong> to conquer all 7 trials of Nidhiveta.
-                      Proceed immediately to the Thanima Main Stage to claim your Grand Prize!
+                      Phenomenal speed! Your team is the <strong>first</strong> to save Rambo and conquer all 7 trials of Nidhiveta.
+                      The coordinators will hand over your Grand Prize!
                     </p>
                   </div>
                 </>
@@ -583,8 +451,7 @@ export default function App() {
                       Splendid triumph! Well played!
                     </p>
                     <p className="text-xs text-white/80 leading-relaxed max-w-sm mx-auto">
-                      Congratulations on conquering all 7 trials of Nidhiveta and assembling the full word K-E-R-A-L-A-M.
-                      Head over to the Thanima Main Stage to celebrate with all participants!
+                      Congratulations on saving Rambo, conquering all 7 trials of Nidhiveta and assembling the full word K-E-R-A-L-A-M.
                     </p>
                   </div>
                 </>
@@ -706,12 +573,6 @@ export default function App() {
                       Inside awaits a puzzle that will lead you to your next clue!
                     </p>
                   </div>
-
-                  {currentTask.sittingArea && (
-                    <div className="rounded-lg bg-inset/80 p-2.5 border border-white/5 flex items-center gap-2 text-xs text-cream">
-                      <span>Designated Sitting Area: <strong className="text-gold">{currentTask.sittingArea}</strong></span>
-                    </div>
-                  )}
                 </div>
               )}
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { getTeamPhotoTargets } from '../utils/photoTargets';
 
 // Helper to compress client-side captured photo to lightweight ~800px JPEG
 // Uses URL.createObjectURL instead of loading raw 20MB files into base64 RAM
@@ -65,16 +64,6 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
     allTargetsCount: 3
   };
 
-  // Locally persisted approved photo records (strictly never lost once approved)
-  const [localApproved, setLocalApproved] = useState(() => {
-    try {
-      const saved = localStorage.getItem('thanima_approved_photos');
-      return saved ? JSON.parse(saved) : {};
-    } catch (_) {
-      return {};
-    }
-  });
-
   // Cache of active uploads so uploaded thumbnails appear instantly without flicker
   const [localUploads, setLocalUploads] = useState(() => {
     const uploads = {};
@@ -91,34 +80,11 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
   const [error, setError] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Automatically lock approved photos into permanent localStorage, and purge rejected ones
+  // Purge the local copy of any photo the coordinator rejected so the retake buttons show
   useEffect(() => {
-    const serverSubmissions = photoState.submissions || [];
-    const serverApproved = serverSubmissions.filter((s) => s.status === 'approved');
-    const serverRejected = serverSubmissions.filter((s) => s.status === 'rejected');
-    const serverPending = serverSubmissions.filter((s) => s.status === 'pending');
+    const serverRejected = (photoState.submissions || []).filter((s) => s.status === 'rejected');
 
-    // 1. If any target is rejected, purge from localApproved and localUploads immediately!
     if (serverRejected.length > 0) {
-      setLocalApproved((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        serverRejected.forEach((s) => {
-          const idx = Number(s.target_index);
-          if (next[idx] !== undefined) {
-            delete next[idx];
-            changed = true;
-          }
-        });
-        if (changed) {
-          try {
-            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
-          } catch (_) {}
-          return next;
-        }
-        return prev;
-      });
-
       serverRejected.forEach((s) => {
         const idx = Number(s.target_index);
         try {
@@ -138,57 +104,6 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
           }
         });
         return changed ? next : prev;
-      });
-    }
-
-    // 2. If any target is currently pending review, make sure it is not marked as localApproved
-    if (serverPending.length > 0) {
-      setLocalApproved((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        serverPending.forEach((s) => {
-          const idx = Number(s.target_index);
-          if (next[idx] !== undefined) {
-            delete next[idx];
-            changed = true;
-          }
-        });
-        if (changed) {
-          try {
-            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
-          } catch (_) {}
-          return next;
-        }
-        return prev;
-      });
-    }
-
-    // 3. Cache truly approved targets
-    if (serverApproved.length > 0) {
-      setLocalApproved((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        serverApproved.forEach((s) => {
-          const idx = Number(s.target_index);
-          if (!next[idx]) {
-            next[idx] = {
-              target_index: idx,
-              status: 'approved',
-              image_url: s.image_url || localUploads[idx] || null
-            };
-            changed = true;
-          } else if (s.image_url && !next[idx].image_url) {
-            next[idx].image_url = s.image_url;
-            changed = true;
-          }
-        });
-        if (changed) {
-          try {
-            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
-          } catch (_) {}
-          return next;
-        }
-        return prev;
       });
     }
   }, [photoState.submissions]);
@@ -213,10 +128,6 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
 
       const token = localStorage.getItem('thanima_token');
 
-      const approvedTargetIndices = Object.keys(localApproved)
-        .map(Number)
-        .filter((idx) => !rejectedIndices.has(idx));
-
       const res = await fetch('/api/photo-game/submit', {
         method: 'POST',
         headers: {
@@ -225,8 +136,7 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
         },
         body: JSON.stringify({
           targetIndex: targetIdx,
-          imageUrl: base64,
-          approvedTargets: approvedTargetIndices
+          imageUrl: base64
         })
       });
 
@@ -241,34 +151,18 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
     }
   };
 
-  const rejectedIndices = new Set(
-    (photoState.submissions || [])
-      .filter((s) => s.status === 'rejected')
-      .map((s) => Number(s.target_index))
-  );
-
-  const cleanLocalApprovedCount = Object.keys(localApproved).filter(
-    (k) => !rejectedIndices.has(Number(k))
-  ).length;
-
   const serverApprovedCount = (photoState.submissions || []).filter(
     (s) => s.status === 'approved'
   ).length;
 
-  const approvedCount = Math.max(
-    photoState.approvedCount || 0,
-    serverApprovedCount,
-    cleanLocalApprovedCount
-  );
+  const approvedCount = Math.max(photoState.approvedCount || 0, serverApprovedCount);
   const isAllApproved = approvedCount >= 3;
 
   // CRITICAL RESILIENCE: Never allow the UI to hide an unlocked or rejected target!
   // If Target 0 is approved, Target 1 MUST be visible (even if rejected, it needs the retake button!).
   // If Target 0 and 1 are approved, Target 2 MUST be visible!
-  const teamNumber = team?.team_number || task?.teamNumber || task?.team_number || 1;
-  const allTeamTargets = (photoState.allTargets && photoState.allTargets.length > 0)
-    ? photoState.allTargets
-    : getTeamPhotoTargets(teamNumber);
+  // Targets come only from the server, which strips the location names
+  const allTeamTargets = photoState.allTargets || photoState.targets || [];
 
   const hasTarget1Activity = (photoState.submissions || []).some((s) => Number(s.target_index) === 1) || Boolean(localUploads[1]);
   const hasTarget2Activity = (photoState.submissions || []).some((s) => Number(s.target_index) === 2) || Boolean(localUploads[2]);
@@ -332,20 +226,13 @@ export default function PhotoGameView({ task, team, onTaskCompleted, onSyncState
         {targets.map((tgt, i) => {
           const submission = (photoState.submissions || []).find((s) => Number(s.target_index) === Number(tgt.index));
           const isRejected = submission?.status === 'rejected';
-          const isApproved = !isRejected && (
-            submission?.status === 'approved' ||
-            (Boolean(localApproved[tgt.index]) && !isRejected)
-          );
+          const isApproved = submission?.status === 'approved';
           const isPending = !isApproved && !isRejected && (
             submission?.status === 'pending' || Boolean(localUploads[tgt.index])
           );
           const isCurrentActive = i === approvedCount;
 
-          const displayImageUrl =
-            submission?.image_url ||
-            (!isRejected && localApproved[tgt.index]?.image_url) ||
-            localUploads[tgt.index] ||
-            null;
+          const displayImageUrl = submission?.image_url || localUploads[tgt.index] || null;
 
           return (
             <div

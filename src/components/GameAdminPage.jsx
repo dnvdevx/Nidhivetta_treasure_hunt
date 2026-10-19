@@ -8,7 +8,7 @@ const STATIONS = [
   { id: 'Photo Game', name: 'Photo Game', description: '3 campus locations full photo capture' },
   { id: 'Movie Game', name: 'Movie Game', description: 'Ladies hostel milk stall movie trivia' },
   { id: 'Boat Game', name: 'Boat Game', description: '5-harbor 20-boat fleet trial' },
-  { id: 'Final Game', name: 'Final Game', description: 'Main stage sprint & Makutam crown' }
+  { id: 'Final Game', name: 'Final Game', description: 'Save Rambo & bring the key to the starting point' }
 ];
 
 const TEAM_TREE_NUMBERS = {
@@ -76,23 +76,13 @@ const normalizeGameName = (name) => {
   return n;
 };
 
-// Station Access Codes (Matching organizers' official codes)
-const STATION_ACCESS_MAP = {
-  'hotncold': 'FLAME#82HC',
-  'numbersontrees': 'PIECE#39JS',
-  'photogame': 'RELIC#61PG',
-  'moviegame': 'CINEMA#82MG',
-  'boatgame': 'VALLAM#55BG',
-  'finalgame': 'MAKUTAM#99FG'
-};
-
 const matchesStation = (currentGame, stationId) => {
   return normalizeGameName(currentGame) === normalizeGameName(stationId);
 };
 
 export default function GameAdminPage() {
   const [passcode, setPasscode] = useState(() => sessionStorage.getItem('thanima_admin_pass') || '');
-  const [session, setSession] = useState(null); // { role: 'master'|'volunteer', gameName, isMaster, stationPasscodes }
+  const [session, setSession] = useState(null); // { role: 'master'|'volunteer', gameName, isMaster }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
@@ -142,14 +132,9 @@ export default function GameAdminPage() {
 
   // Live Data
   const [teams, setTeams] = useState([]);
-  const [photoSubmissions, setPhotoSubmissions] = useState(() => {
-    try {
-      const cached = localStorage.getItem('thanima_admin_cached_photos');
-      return cached ? JSON.parse(cached) : [];
-    } catch (_) {
-      return [];
-    }
-  });
+  const [photoSubmissions, setPhotoSubmissions] = useState([]);
+  // Master organizers only: which team cards currently show the team passcode
+  const [revealedPasscodes, setRevealedPasscodes] = useState({});
   const [boatQuestions, setBoatQuestions] = useState([]);
   const [enlargedPhoto, setEnlargedPhoto] = useState(null);
 
@@ -185,8 +170,7 @@ export default function GameAdminPage() {
         isMaster: data.isMaster,
         gameName: data.gameName,
         displayName: data.displayName,
-        icon: data.icon,
-        stationPasscodes: data.stationPasscodes
+        icon: data.icon
       };
 
       setSession(sessionObj);
@@ -222,33 +206,7 @@ export default function GameAdminPage() {
     setStationUnlockError('');
 
     try {
-      const targetNorm = normalizeGameName(stationToUnlock.name);
-      const expectedCode = STATION_ACCESS_MAP[targetNorm];
-
-      // Check if this access code belongs to a different station
-      const otherStationKey = Object.keys(STATION_ACCESS_MAP).find(
-        (key) => key !== targetNorm && STATION_ACCESS_MAP[key] === inputCode
-      );
-
-      if (otherStationKey) {
-        setStationUnlockError(`This access code belongs to a different game station. Please enter the access code for ${stationToUnlock.name}.`);
-        setIsUnlocking(false);
-        return;
-      }
-
-      // 1. Direct validation against expected station code
-      if (expectedCode && inputCode === expectedCode) {
-        unlockStation(stationToUnlock.name);
-        setActiveStation(stationToUnlock.name);
-        setStationToUnlock(null);
-        setStationAccessCodeInput('');
-        setStationUnlockError('');
-        showActionToast(`Access verified for ${stationToUnlock.name}!`);
-        setIsUnlocking(false);
-        return;
-      }
-
-      // 2. Server verification via /api/admin/login
+      // Station codes are only known to the server
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -285,46 +243,23 @@ export default function GameAdminPage() {
     const k = activeKey || session?.key;
     if (!k) return;
 
+    // Passcode goes in a header, never in the URL (URLs end up in server logs)
+    const opts = { headers: { 'x-admin-key': k } };
     try {
-      const tRes = await fetch(`/api/admin/teams?key=${encodeURIComponent(k)}`);
+      const tRes = await fetch('/api/admin/teams', opts);
       if (tRes.ok) {
         const tData = await tRes.json();
         setTeams(tData.teams || []);
       }
 
-      const pRes = await fetch(`/api/admin/photo-submissions?key=${encodeURIComponent(k)}`);
+      // The server is the source of truth; 403 just means this station has no photo access
+      const pRes = await fetch('/api/admin/photo-submissions', opts);
       if (pRes.ok) {
         const pData = await pRes.json();
-        setPhotoSubmissions((prev) => {
-          const incoming = Array.isArray(pData) ? pData : [];
-          if (incoming.length === 0 && prev.length > 0) return prev;
-          const map = new Map();
-          (prev || []).forEach((item) => {
-            const key = `${item.team_id}-${item.target_index}`;
-            map.set(key, item);
-          });
-          incoming.forEach((item) => {
-            const key = `${item.team_id}-${item.target_index}`;
-            const existing = map.get(key);
-            if (existing) {
-              map.set(key, {
-                ...existing,
-                ...item,
-                image_url: item.image_url || existing.image_url
-              });
-            } else {
-              map.set(key, item);
-            }
-          });
-          const merged = Array.from(map.values());
-          try {
-            localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(merged));
-          } catch (_) {}
-          return merged;
-        });
+        setPhotoSubmissions(Array.isArray(pData) ? pData : []);
       }
 
-      const bRes = await fetch(`/api/admin/boat-questions?key=${encodeURIComponent(k)}`);
+      const bRes = await fetch('/api/admin/boat-questions', opts);
       if (bRes.ok) {
         const bData = await bRes.json();
         setBoatQuestions(bData || []);
@@ -355,8 +290,8 @@ export default function GameAdminPage() {
     setTimeout(() => setActionMsg(''), 4500);
   };
 
-  // 1-Click Approve Team
-  const handleApproveTeam = async (teamId, gameName) => {
+  // 1-Click Approve Team. expectedStep makes a double tap (or two volunteers) advance only once.
+  const handleApproveTeam = async (team, gameName) => {
     if (!window.confirm('Approve this team? They will immediately advance to their next game station.')) return;
 
     try {
@@ -365,7 +300,8 @@ export default function GameAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           adminKey: session.key,
-          teamId,
+          teamId: team.id,
+          expectedStep: team.current_step || 0,
           marshalName: `${gameName || 'Station'} Volunteer`
         })
       });
@@ -410,18 +346,12 @@ export default function GameAdminPage() {
   const handleReviewPhoto = async (submissionId, status, extra = {}) => {
     // Immediately update local state so admin UI never flickers
     const targetIdx = Number(extra.targetIndex);
-    setPhotoSubmissions((prev) => {
-      const next = prev.map((p) => {
-        if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && Number(p.target_index) === targetIdx)) {
-          return { ...p, status };
-        }
-        return p;
-      });
-      try {
-        localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(next));
-      } catch (_) {}
-      return next;
-    });
+    setPhotoSubmissions((prev) => prev.map((p) => {
+      if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && Number(p.target_index) === targetIdx)) {
+        return { ...p, status };
+      }
+      return p;
+    }));
 
     // Also update teams list state immediately so approved_photo_targets matches
     setTeams((prev) => prev.map((t) => {
@@ -515,18 +445,7 @@ export default function GameAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
       showActionToast('✓ All 10 teams have been reset to Step 0!');
-      localStorage.removeItem('thanima_admin_cached_photos');
-      localStorage.removeItem('thanima_highest_step');
-      localStorage.removeItem('thanima_approved_photos');
-      localStorage.removeItem('thanima_offline_cache');
-      localStorage.removeItem('thanima_photo_submissions');
-      localStorage.removeItem('thanima_boat_claimed_num');
-      localStorage.removeItem('thanima_boat_question_text');
-      localStorage.removeItem('thanima_boat_question_code');
-      for (let i = 0; i < 5; i++) {
-        localStorage.removeItem(`thanima_photo_upload_${i}`);
-        sessionStorage.removeItem(`thanima_photo_upload_${i}`);
-      }
+      // Players' phones clear their own caches when they see the new reset_at from the server
       setPhotoSubmissions([]);
       setResetPasscodeInput('');
       await fetchLiveData(session.key);
@@ -552,17 +471,31 @@ export default function GameAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
       showActionToast(`✓ ${teamName || teamId} reset to Step 0!`);
-      try {
-        const cached = localStorage.getItem('thanima_admin_cached_photos');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          const filtered = parsed.filter((p) => p.team_id !== teamId && String(p.team_number) !== String(teamId));
-          localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(filtered));
-        }
-      } catch (_) {}
       await fetchLiveData(session.key);
     } catch (err) {
       alert(`Reset Error: ${err.message}`);
+    }
+  };
+
+  // The boat tag sheet lists every boat code, so it is fetched with the passcode instead of
+  // being a public file.
+  const handleOpenBoatTags = async () => {
+    const win = window.open('', '_blank');
+    try {
+      const res = await fetch('/api/admin/print/boat-tags', {
+        headers: { 'x-admin-key': session.key }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Could not load boat tags');
+      }
+      const html = await res.text();
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      if (win) win.location.href = url;
+      else window.location.href = url;
+    } catch (err) {
+      if (win) win.close();
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -823,7 +756,7 @@ export default function GameAdminPage() {
 
                           {/* 1-Click Overall Approval */}
                           <button
-                            onClick={() => handleApproveTeam(team.id, 'Photo Game')}
+                            onClick={() => handleApproveTeam(team, 'Photo Game')}
                             className="rounded-2xl bg-gold hover:bg-gold/90 text-bg px-4 py-2.5 text-xs font-black active:scale-95 transition shadow-xl flex items-center gap-1.5"
                           >
                             Overall Game Approval ➔
@@ -976,9 +909,6 @@ export default function GameAdminPage() {
                             {team.name}
                           </h4>
                         </div>
-                        <p className="text-xs text-white/50 mt-1">
-                          Passcode: <code className="font-mono text-gold font-bold">{team.passcode}</code>
-                        </p>
                       </div>
 
                       <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 text-xs font-bold">
@@ -1029,7 +959,7 @@ export default function GameAdminPage() {
                     {/* Big Touch-Friendly Action Buttons */}
                     <div className="pt-2 flex items-center gap-2.5">
                       <button
-                        onClick={() => handleApproveTeam(team.id, activeStation)}
+                        onClick={() => handleApproveTeam(team, activeStation)}
                         className="flex-1 rounded-2xl bg-emerald-600 hover:bg-emerald-500 py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl active:scale-95 transition flex items-center justify-center gap-2"
                       >
                         Approve Team & Advance
@@ -1216,9 +1146,21 @@ export default function GameAdminPage() {
                               </span>
                               <h4 className="font-serif text-base font-bold text-gold">{t.name}</h4>
                             </div>
-                            <p className="text-[11px] text-white/50 mt-0.5">
-                              Passcode: <code className="font-mono text-gold font-bold">{t.passcode}</code>
-                            </p>
+                            {t.passcode && (
+                              <p className="text-[11px] text-white/50 mt-0.5">
+                                Passcode:{' '}
+                                {revealedPasscodes[t.id] ? (
+                                  <code className="font-mono text-gold font-bold">{t.passcode}</code>
+                                ) : (
+                                  <button
+                                    onClick={() => setRevealedPasscodes((prev) => ({ ...prev, [t.id]: true }))}
+                                    className="font-mono text-gold/80 underline hover:text-gold"
+                                  >
+                                    •••••• (tap to show)
+                                  </button>
+                                )}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
                             <span className="font-mono text-sm font-black text-gold">Step {t.current_step || 0} of 7</span>
@@ -1267,14 +1209,12 @@ export default function GameAdminPage() {
                       5 Campus Locations • 2 Question Boats per location • 10 Question Boats (1–10) & 10 Answer Boats (11–20)
                     </p>
                   </div>
-                  <a
-                    href="/qrs/print-boat-tags.html"
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={handleOpenBoatTags}
                     className="inline-flex items-center gap-2 rounded-xl bg-gold/20 border border-gold/40 px-3.5 py-2 text-xs font-bold text-gold hover:bg-gold/30 transition self-start sm:self-auto"
                   >
                     Print 20 Boat Tags
-                  </a>
+                  </button>
                 </div>
 
                 {/* 5 Campus Locations Breakdown */}

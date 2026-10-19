@@ -1,58 +1,72 @@
-// Master Organizer Common Passwords
-export const MASTER_ADMIN_PASSWORDS = [
+// Master Organizer passwords.
+// The GitHub repository is public, so these defaults are NOT secret. Set MASTER_ADMIN_PASSWORDS
+// (comma-separated) in the Vercel environment to replace them.
+const DEFAULT_MASTER_ADMIN_PASSWORDS = [
   'THANIMA@CORE26',
   'RESET@THANIMA26',
-  'THANIMA#RESET26',
-  'thanima-admin-2026'
+  'THANIMA#RESET26'
 ];
+
+export const MASTER_ADMIN_PASSWORDS = (process.env.MASTER_ADMIN_PASSWORDS || '')
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean);
+if (MASTER_ADMIN_PASSWORDS.length === 0) {
+  MASTER_ADMIN_PASSWORDS.push(...DEFAULT_MASTER_ADMIN_PASSWORDS);
+}
+
+// Optional per-station overrides, e.g. STATION_PASSCODE_PHOTO_GAME=NEWCODE
+function stationPasscode(envName, fallback) {
+  return (process.env[envName] || '').trim() || fallback;
+}
 
 // Individual Secret Game Station Passcodes for Marshals & Volunteers
 export const GAME_STATION_PASSCODES = {
   'Hot n Cold': {
     gameId: 'Hot n Cold',
-    passcode: 'FLAME#82HC',
+    passcode: stationPasscode('STATION_PASSCODE_HOT_N_COLD', 'FLAME#82HC'),
     displayName: 'Hot n Cold',
     icon: '🔥',
     alias: ['Hot & Cold', 'Hot n Cold']
   },
   'Numbers on Trees': {
     gameId: 'Jigsaw',
-    passcode: 'PIECE#39JS',
+    passcode: stationPasscode('STATION_PASSCODE_JIGSAW', 'PIECE#39JS'),
     displayName: 'Jigsaw',
     icon: '🧩',
     alias: ['Numbers on Trees', 'Jigsaw']
   },
   'Jigsaw': {
     gameId: 'Jigsaw',
-    passcode: 'PIECE#39JS',
+    passcode: stationPasscode('STATION_PASSCODE_JIGSAW', 'PIECE#39JS'),
     displayName: 'Jigsaw',
     icon: '🧩',
     alias: ['Numbers on Trees', 'Jigsaw']
   },
   'Photo Game': {
     gameId: 'Photo Game',
-    passcode: 'RELIC#61PG',
+    passcode: stationPasscode('STATION_PASSCODE_PHOTO_GAME', 'RELIC#61PG'),
     displayName: 'Photo Game',
     icon: '📸',
     alias: ['Photo Game']
   },
   'Movie Game': {
     gameId: 'Movie Game',
-    passcode: 'CINEMA#82MG',
+    passcode: stationPasscode('STATION_PASSCODE_MOVIE_GAME', 'CINEMA#82MG'),
     displayName: 'Movie Game',
     icon: '🎬',
     alias: ['Movie Game']
   },
   'Boat Game': {
     gameId: 'Boat Game',
-    passcode: 'VALLAM#55BG',
+    passcode: stationPasscode('STATION_PASSCODE_BOAT_GAME', 'VALLAM#55BG'),
     displayName: 'Boat Game (The 20-Boat Fleet)',
     icon: '🛶',
     alias: ['Boat Game', 'Boat Game (The 20-Boat Fleet)']
   },
   'Final Game': {
     gameId: 'Final Game',
-    passcode: 'MAKUTAM#99FG',
+    passcode: stationPasscode('STATION_PASSCODE_FINAL_GAME', 'MAKUTAM#99FG'),
     displayName: 'Final Game (The Crown)',
     icon: '🏆',
     alias: ['Final Game', 'Final Game (The Crown of Makutam)']
@@ -71,7 +85,8 @@ export function verifyAdminOrStationPasscode(providedKey) {
         isMaster: true,
         role: 'master',
         displayName: 'Head Organizer',
-        gameName: null
+        gameName: null,
+        aliases: []
       };
     }
   }
@@ -85,7 +100,8 @@ export function verifyAdminOrStationPasscode(providedKey) {
         role: 'volunteer',
         gameName,
         displayName: info.displayName,
-        icon: info.icon
+        icon: info.icon,
+        aliases: info.alias
       };
     }
   }
@@ -149,21 +165,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'Zedaxis',
-      clueImage: '/images/photo-clues/zedaxis.jpg',
+      clueImage: '/images/c/b6a472e2fe483ab3.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'VIT Heart',
-      clueImage: '/images/photo-clues/vit-heart.jpg',
+      clueImage: '/images/c/9a9fdf8453330490.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Well 10 Gazebo - B Block',
-      clueImage: '/images/photo-clues/well-10.jpg',
+      clueImage: '/images/c/0174a133c83cc954.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -172,21 +188,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'VIT Map',
-      clueImage: '/images/photo-clues/vit-map.jpg',
+      clueImage: '/images/c/d7430e622c981c7d.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'North Sq. Karikku Kada',
-      clueImage: '/images/photo-clues/karikku-kada.jpg',
+      clueImage: '/images/c/ef243cad0847dfd0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Swimming Pool Banyan Tree',
-      clueImage: '/images/photo-clues/banyan-tree.jpg',
+      clueImage: '/images/c/2cda1ab4241c8cf7.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -195,21 +211,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'Indian Bank',
-      clueImage: '/images/photo-clues/indian-bank.jpg',
+      clueImage: '/images/c/90d715422292ac27.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Courier Point',
-      clueImage: '/images/photo-clues/courier-point.jpg',
+      clueImage: '/images/c/9e0090a003384b03.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Clock Court',
-      clueImage: '/images/photo-clues/clock-court.jpg',
+      clueImage: '/images/c/dacbec3f1fa02e56.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -218,21 +234,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'Guesthouse',
-      clueImage: '/images/photo-clues/guesthouse.jpg',
+      clueImage: '/images/c/8df97e60df3d06a0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Courier Point',
-      clueImage: '/images/photo-clues/courier-point.jpg',
+      clueImage: '/images/c/9e0090a003384b03.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Well 10 Gazebo - B Block',
-      clueImage: '/images/photo-clues/well-10.jpg',
+      clueImage: '/images/c/0174a133c83cc954.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -241,21 +257,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'North Sq. Karikku Kada',
-      clueImage: '/images/photo-clues/karikku-kada.jpg',
+      clueImage: '/images/c/ef243cad0847dfd0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Zedaxis',
-      clueImage: '/images/photo-clues/zedaxis.jpg',
+      clueImage: '/images/c/b6a472e2fe483ab3.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'MG Auditorium',
-      clueImage: '/images/photo-clues/mg-auditorium.jpg',
+      clueImage: '/images/c/81290f312bd1e32b.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -264,21 +280,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'Parking Lot',
-      clueImage: '/images/photo-clues/parking-lot.jpg',
+      clueImage: '/images/c/5d4e3c1dbaf1957c.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'North Sq. Karikku Kada',
-      clueImage: '/images/photo-clues/karikku-kada.jpg',
+      clueImage: '/images/c/ef243cad0847dfd0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Courier Point',
-      clueImage: '/images/photo-clues/courier-point.jpg',
+      clueImage: '/images/c/9e0090a003384b03.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -287,21 +303,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'VIT Heart',
-      clueImage: '/images/photo-clues/vit-heart.jpg',
+      clueImage: '/images/c/9a9fdf8453330490.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Zedaxis',
-      clueImage: '/images/photo-clues/zedaxis.jpg',
+      clueImage: '/images/c/b6a472e2fe483ab3.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Indian Bank',
-      clueImage: '/images/photo-clues/indian-bank.jpg',
+      clueImage: '/images/c/90d715422292ac27.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -310,21 +326,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'Well 10 Gazebo - B Block',
-      clueImage: '/images/photo-clues/well-10.jpg',
+      clueImage: '/images/c/0174a133c83cc954.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Indian Bank',
-      clueImage: '/images/photo-clues/indian-bank.jpg',
+      clueImage: '/images/c/90d715422292ac27.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Clock Court',
-      clueImage: '/images/photo-clues/clock-court.jpg',
+      clueImage: '/images/c/dacbec3f1fa02e56.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -333,21 +349,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'MG Auditorium',
-      clueImage: '/images/photo-clues/mg-auditorium.jpg',
+      clueImage: '/images/c/81290f312bd1e32b.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'Courier Point',
-      clueImage: '/images/photo-clues/courier-point.jpg',
+      clueImage: '/images/c/9e0090a003384b03.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Indian Bank',
-      clueImage: '/images/photo-clues/indian-bank.jpg',
+      clueImage: '/images/c/90d715422292ac27.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ],
@@ -356,21 +372,21 @@ export const TEAM_PHOTO_TARGETS = {
       index: 0,
       title: 'Location 1',
       locationName: 'North Sq. Karikku Kada',
-      clueImage: '/images/photo-clues/karikku-kada.jpg',
+      clueImage: '/images/c/ef243cad0847dfd0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 1,
       title: 'Location 2',
       locationName: 'VIT Heart',
-      clueImage: '/images/photo-clues/vit-heart.jpg',
+      clueImage: '/images/c/9a9fdf8453330490.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     },
     {
       index: 2,
       title: 'Location 3',
       locationName: 'Guesthouse',
-      clueImage: '/images/photo-clues/guesthouse.jpg',
+      clueImage: '/images/c/8df97e60df3d06a0.jpg',
       description: 'Study the clue image, find this campus location, and take a clear full photo of it.'
     }
   ]
@@ -815,7 +831,7 @@ A little shop keeps your next clue inside.`,
     rules: {
       title: 'Rules & Instructions',
       items: [
-        { num: 1, title: 'Report to the Location', text: 'Assemble with your squad near the ladies hostel milk stall before the Movie Game coordinator.' },
+        { num: 1, title: 'Report to the Location', text: 'Solve the station riddle, find the location, and assemble with your squad before the Movie Game coordinator.' },
         { num: 2, title: 'Cinematic Challenges', text: 'Listen to iconic Malayalam movie dialogues, signature background scores, or visual film stills.' },
         { num: 3, title: 'Team Consensus', text: 'Confer with your teammates and announce your final answer within the time limit.' },
         { num: 4, title: 'Earn Marshal Approval', text: 'Correctly identifying the films or characters earns the coordinator\'s approval or QR scan.' }
@@ -864,20 +880,21 @@ A little shop keeps your next clue inside.`,
     internalName: 'Final Game',
     displayName: 'Final Game (The Crown of Makutam)',
     clueTitle: 'The Crown of Makutam',
-    clueImage: '/images/final-clue.png',
+    clueImage: '/images/c/a12d8da9bcb185ce.png',
     riddle: 'The sacred 7th letter "M" has materialized! Study the highlighted zone on your treasure map, locate the secret place, and race with all your vigor to claim your crowning triumph!',
     crypticHint: 'Refer to the red highlighted zone on your final clue map.',
     mapUrl: 'https://www.google.com/maps/search/?api=1&query=VIT+Chennai+Auditorium',
     qrCode: 'THANIMA-GAME-FINAL-9901',
     points: 150,
     rules: {
-      title: 'Rules & Instructions',
+      title: 'One Step Ahead to Save Rambo',
       items: [
         { num: 1, title: 'Secret 7th Letter "M"', text: 'Having conquered the 6th challenge, the hidden letter "M" is now revealed on your board!' },
-        { num: 2, title: 'Full Team Sprint', text: 'All 4 team members must race together to the Grand Stage.' },
-        { num: 3, title: 'Claim the Crown', text: 'Present your completed board to the Grand Coordinator to verify all 7 letters of KERALAM and claim your victory!' }
+        { num: 2, title: 'Race Together', text: 'All team members must race together to the final location.' },
+        { num: 3, title: 'Save Rambo', text: 'Rambo will be placed somewhere in the final location with a key.' },
+        { num: 4, title: 'Claim Your Victory', text: 'Present the key at the starting point to claim your victory.' }
       ],
-      remember: 'Every second counts—all 4 team members must reach the stage together!'
+      remember: 'Every second counts—stay together, find Rambo, and bring the key back to the starting point!'
     }
   }
 };

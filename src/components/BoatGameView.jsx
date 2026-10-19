@@ -37,31 +37,10 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
   const boatQuestion = task?.boatQuestion || {};
   const isInitiallyUnlocked = Boolean(boatQuestion.isQuestionUnlocked);
 
-  const [questionUnlocked, setQuestionUnlocked] = useState(() => {
-    if (isInitiallyUnlocked) return true;
-    try {
-      return Boolean(localStorage.getItem('thanima_boat_claimed_num'));
-    } catch (_) {
-      return false;
-    }
-  });
-  const [unlockedQuestionText, setUnlockedQuestionText] = useState(() => {
-    if (boatQuestion.question) return boatQuestion.question;
-    try {
-      return localStorage.getItem('thanima_boat_question_text') || '';
-    } catch (_) {
-      return '';
-    }
-  });
-  const [claimedBoatNum, setClaimedBoatNum] = useState(() => {
-    if (boatQuestion.questionBoatNumber) return boatQuestion.questionBoatNumber;
-    try {
-      const saved = localStorage.getItem('thanima_boat_claimed_num');
-      return saved ? Number(saved) : null;
-    } catch (_) {
-      return null;
-    }
-  });
+  // The claimed question always comes from the server (task.boatQuestion)
+  const [questionUnlocked, setQuestionUnlocked] = useState(isInitiallyUnlocked);
+  const [unlockedQuestionText, setUnlockedQuestionText] = useState(boatQuestion.question || '');
+  const [claimedBoatNum, setClaimedBoatNum] = useState(boatQuestion.questionBoatNumber || null);
   const [questionCodeInput, setQuestionCodeInput] = useState('');
   const [answerCodeInput, setAnswerCodeInput] = useState('');
   const [activeLocTab, setActiveLocTab] = useState(1);
@@ -77,27 +56,13 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
 
   const currentLoc = locations.find((l) => l.locationNumber === activeLocTab) || locations[0];
 
-  // Keep state in sync if parent task updates (e.g. from background sync)
+  // Keep state in sync with the server (background polls, or an organizer releasing the claim)
   React.useEffect(() => {
-    if (task?.boatQuestion) {
-      if (task.boatQuestion.isQuestionUnlocked) {
-        setQuestionUnlocked(true);
-        const qText = task.boatQuestion.question;
-        const qNum = task.boatQuestion.questionBoatNumber;
-        const qCode = task.boatQuestion.questionCode;
-        if (qText) {
-          setUnlockedQuestionText(qText);
-          try { localStorage.setItem('thanima_boat_question_text', qText); } catch (_) {}
-        }
-        if (qNum) {
-          setClaimedBoatNum(qNum);
-          try { localStorage.setItem('thanima_boat_claimed_num', String(qNum)); } catch (_) {}
-        }
-        if (qCode) {
-          try { localStorage.setItem('thanima_boat_question_code', qCode); } catch (_) {}
-        }
-      }
-    }
+    if (!task?.boatQuestion) return;
+    const unlocked = Boolean(task.boatQuestion.isQuestionUnlocked);
+    setQuestionUnlocked(unlocked);
+    setUnlockedQuestionText(unlocked ? task.boatQuestion.question || '' : '');
+    setClaimedBoatNum(unlocked ? task.boatQuestion.questionBoatNumber || null : null);
   }, [task]);
 
   // Step 1: Unlock Question using Question Boat code
@@ -132,18 +97,8 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
       setQuestionUnlocked(true);
       const qNum = data.boatQuestion?.questionBoatNumber;
       const qText = data.question || data.boatQuestion?.question || '';
-      const qCode = data.boatQuestion?.questionCode || clean;
-      if (qNum) {
-        setClaimedBoatNum(qNum);
-        try { localStorage.setItem('thanima_boat_claimed_num', String(qNum)); } catch (_) {}
-      }
-      if (qText) {
-        setUnlockedQuestionText(qText);
-        try { localStorage.setItem('thanima_boat_question_text', qText); } catch (_) {}
-      }
-      if (qCode) {
-        try { localStorage.setItem('thanima_boat_question_code', qCode); } catch (_) {}
-      }
+      if (qNum) setClaimedBoatNum(qNum);
+      if (qText) setUnlockedQuestionText(qText);
       setSuccessMsg(data.message || 'Question Unlocked! Now find the boat displaying the correct answer.');
       if (onSyncState) onSyncState();
     } catch (err) {
@@ -168,8 +123,6 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('thanima_token');
-      const savedNum = localStorage.getItem('thanima_boat_claimed_num');
-      const savedCode = localStorage.getItem('thanima_boat_question_code');
 
       const res = await fetch('/api/boat-game/verify', {
         method: 'POST',
@@ -177,23 +130,13 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          code: clean,
-          claimedBoatNumber: claimedBoatNum || (savedNum ? Number(savedNum) : undefined),
-          questionCode: boatQuestion.questionCode || savedCode || undefined
-        })
+        body: JSON.stringify({ code: clean })
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Answer verification failed.');
       }
-
-      try {
-        localStorage.removeItem('thanima_boat_claimed_num');
-        localStorage.removeItem('thanima_boat_question_text');
-        localStorage.removeItem('thanima_boat_question_code');
-      } catch (_) {}
 
       setSuccessMsg(data.message || 'Splendid victory! Correct vessel discovered!');
       if (onTaskCompleted) {
