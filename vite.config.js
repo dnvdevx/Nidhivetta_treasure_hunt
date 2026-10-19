@@ -14,6 +14,16 @@ function expressApiPlugin() {
 export default defineConfig({
   plugins: [react(), expressApiPlugin()],
   server: {
-    port: 5173
+    port: 5173,
+    watch: {
+      ignored: [
+        '**/*.jpeg',
+        '**/*.jpg',
+        '**/*.png',
+        '**/*.gif',
+        '**/*.webp',
+        '**/WhatsApp*'
+      ]
+    }
   }
 });

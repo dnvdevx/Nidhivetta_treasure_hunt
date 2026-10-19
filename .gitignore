@@ -38,3 +38,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Temporary raw image drops
+WhatsApp*
