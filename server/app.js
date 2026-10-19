@@ -179,13 +179,29 @@ app.get('/api/teams/me', authenticateToken, async (req, res) => {
 // 4b. Sync / restore team progress from verified client (heals ephemeral serverless instances)
 app.post('/api/teams/sync-progress', authenticateToken, async (req, res) => {
   try {
-    const { step, approvedPhotoTargets } = req.body;
+    const { step, approvedPhotoTargets, clientResetAt } = req.body;
     if (typeof step !== 'number' || step < 0 || step > 7) {
       return res.status(400).json({ error: 'Valid step number required' });
     }
 
     const team = await getTeamById(req.user.teamId);
     if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    // CRITICAL RESET GUARD: If this team was reset by organizers and client session was from before the reset,
+    // REJECT the sync-progress call so old client cache can NEVER un-reset the team!
+    if (team.reset_at) {
+      const serverResetTime = new Date(team.reset_at).getTime();
+      const clientResetTime = clientResetAt ? new Date(clientResetAt).getTime() : 0;
+      if (serverResetTime > clientResetTime) {
+        return res.json({
+          success: false,
+          wasReset: true,
+          message: 'Team progress was reset by organizers.',
+          team,
+          currentTask: getTeamCurrentTask(team)
+        });
+      }
+    }
 
     if (step > (team.current_step || 0)) {
       await advanceTeamToStep(team.id, step);

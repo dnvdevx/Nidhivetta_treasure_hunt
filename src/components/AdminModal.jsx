@@ -321,6 +321,14 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
+      try {
+        const cached = localStorage.getItem('thanima_admin_cached_photos');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const filtered = parsed.filter((p) => p.team_id !== teamId && String(p.team_number) !== String(teamId));
+          localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(filtered));
+        }
+      } catch (_) {}
       setActionMessage(`Team reset!`);
       await fetchDashboardData(adminKey);
     } catch (err) {
@@ -347,7 +355,19 @@ export default function AdminModal({ isOpen, onClose }) {
       if (!res.ok) throw new Error(data.error || 'Reset failed');
       try {
         localStorage.removeItem('thanima_admin_cached_photos');
+        localStorage.removeItem('thanima_highest_step');
+        localStorage.removeItem('thanima_approved_photos');
+        localStorage.removeItem('thanima_offline_cache');
+        localStorage.removeItem('thanima_photo_submissions');
+        localStorage.removeItem('thanima_boat_claimed_num');
+        localStorage.removeItem('thanima_boat_question_text');
+        localStorage.removeItem('thanima_boat_question_code');
+        for (let i = 0; i < 5; i++) {
+          localStorage.removeItem(`thanima_photo_upload_${i}`);
+          sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+        }
       } catch (_) {}
+      setPhotoSubmissions([]);
       setResetConfirmationCode('');
       setActionMessage('All 10 teams reset to step 0!');
       await fetchDashboardData(adminKey);
@@ -1531,8 +1551,8 @@ export default function AdminModal({ isOpen, onClose }) {
                     placeholder="Enter confirmation passcode"
                     className="w-full rounded-xl border border-red-500/40 bg-card px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-red-400 focus:outline-none"
                   />
-                  <p className="text-[10px] text-white/50">
-                    Passcode: <code className="text-gold font-mono font-bold">THANIMA@CORE26</code> or <code className="text-gold font-mono font-bold">RESET@THANIMA26</code>
+                  <p className="text-[10px] text-white/40">
+                    Authorized Master Organizers only. Enter confirmation passcode to proceed.
                   </p>
                 </div>
                 <button

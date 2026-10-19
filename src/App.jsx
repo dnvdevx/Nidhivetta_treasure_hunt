@@ -175,13 +175,51 @@ export default function App() {
       const data = await res.json();
       if (!data || !data.team) return;
 
-      const serverStep = typeof data.team.current_step === 'number' ? data.team.current_step : 0;
+      const serverTeam = data.team;
+      const serverStep = typeof serverTeam.current_step === 'number' ? serverTeam.current_step : 0;
+      const serverResetAt = serverTeam.reset_at;
+      const cachedResetAt = localStorage.getItem('thanima_team_reset_at');
+
+      // CRITICAL RESET DETECTION: Check if team was reset by organizers
+      const isResetDetected = Boolean(
+        serverResetAt &&
+        (!cachedResetAt || new Date(serverResetAt).getTime() > new Date(cachedResetAt).getTime())
+      ) || (serverStep === 0 && (serverTeam.points === 0 || !serverTeam.points) && (team?.current_step > 0 || parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) > 0));
+
+      if (isResetDetected) {
+        console.warn('Team reset by organizers detected. Purging local cache and setting step to 0.');
+        try {
+          localStorage.removeItem('thanima_highest_step');
+          localStorage.removeItem('thanima_approved_photos');
+          localStorage.removeItem('thanima_photo_submissions');
+          localStorage.removeItem('thanima_offline_cache');
+          localStorage.removeItem('thanima_boat_claimed_num');
+          localStorage.removeItem('thanima_boat_question_text');
+          localStorage.removeItem('thanima_boat_question_code');
+          for (let i = 0; i < 5; i++) {
+            localStorage.removeItem(`thanima_photo_upload_${i}`);
+            sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+          }
+          if (serverResetAt) {
+            localStorage.setItem('thanima_team_reset_at', serverResetAt);
+          }
+        } catch (_) {}
+
+        setTeam(serverTeam);
+        if (data.member) setMember(data.member);
+        setCurrentTask(data.currentTask || null);
+        setIsOffline(false);
+        saveToOfflineCache(serverTeam, data.member || member, data.currentTask || null);
+        setLoading(false);
+        return;
+      }
+
       const localHighest = Math.max(
         parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0,
         team?.current_step || 0
       );
 
-      // CRITICAL PROGRESS SHIELD: Never let stale server state downgrade the team!
+      // PROGRESS SHIELD (only active when NOT reset):
       if (serverStep < localHighest) {
         console.warn(`Server returned stale step ${serverStep}, but client verified at step ${localHighest}. Protecting progress.`);
         setIsOffline(false);
@@ -202,12 +240,34 @@ export default function App() {
           },
           body: JSON.stringify({
             step: localHighest,
-            approvedPhotoTargets
+            approvedPhotoTargets,
+            clientResetAt: cachedResetAt
           })
         })
           .then((r) => r.json())
           .then((healed) => {
-            if (healed && healed.team && healed.team.current_step >= localHighest) {
+            if (healed && healed.wasReset) {
+              console.warn('Server confirmed team reset. Purging local storage.');
+              try {
+                localStorage.removeItem('thanima_highest_step');
+                localStorage.removeItem('thanima_approved_photos');
+                localStorage.removeItem('thanima_photo_submissions');
+                localStorage.removeItem('thanima_offline_cache');
+                localStorage.removeItem('thanima_boat_claimed_num');
+                localStorage.removeItem('thanima_boat_question_text');
+                localStorage.removeItem('thanima_boat_question_code');
+                for (let i = 0; i < 5; i++) {
+                  localStorage.removeItem(`thanima_photo_upload_${i}`);
+                  sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+                }
+                if (healed.team?.reset_at) {
+                  localStorage.setItem('thanima_team_reset_at', healed.team.reset_at);
+                }
+              } catch (_) {}
+              if (healed.team) setTeam(healed.team);
+              if (healed.currentTask) setCurrentTask(healed.currentTask);
+              saveToOfflineCache(healed.team, data.member || member, healed.currentTask || null);
+            } else if (healed && healed.team && healed.team.current_step >= localHighest) {
               setTeam(healed.team);
               if (healed.currentTask) setCurrentTask(healed.currentTask);
               saveToOfflineCache(healed.team, data.member || member, healed.currentTask || currentTask);
@@ -218,11 +278,11 @@ export default function App() {
       }
 
       // Server is at or ahead of local state -> Accept new state & persist
-      setTeam(data.team);
+      setTeam(serverTeam);
       if (data.member) setMember(data.member);
       if (data.currentTask) setCurrentTask(data.currentTask);
       setIsOffline(false);
-      saveToOfflineCache(data.team, data.member || member, data.currentTask);
+      saveToOfflineCache(serverTeam, data.member || member, data.currentTask);
     } catch (err) {
       console.warn('Network offline or sync failed, using cached state:', err);
       setIsOffline(true);

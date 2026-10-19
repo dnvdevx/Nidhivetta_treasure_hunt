@@ -516,6 +516,17 @@ export default function GameAdminPage() {
       if (!res.ok) throw new Error(data.error || 'Reset failed');
       showActionToast('✓ All 10 teams have been reset to Step 0!');
       localStorage.removeItem('thanima_admin_cached_photos');
+      localStorage.removeItem('thanima_highest_step');
+      localStorage.removeItem('thanima_approved_photos');
+      localStorage.removeItem('thanima_offline_cache');
+      localStorage.removeItem('thanima_photo_submissions');
+      localStorage.removeItem('thanima_boat_claimed_num');
+      localStorage.removeItem('thanima_boat_question_text');
+      localStorage.removeItem('thanima_boat_question_code');
+      for (let i = 0; i < 5; i++) {
+        localStorage.removeItem(`thanima_photo_upload_${i}`);
+        sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+      }
       setPhotoSubmissions([]);
       setResetPasscodeInput('');
       await fetchLiveData(session.key);
@@ -541,6 +552,14 @@ export default function GameAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
       showActionToast(`✓ ${teamName || teamId} reset to Step 0!`);
+      try {
+        const cached = localStorage.getItem('thanima_admin_cached_photos');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const filtered = parsed.filter((p) => p.team_id !== teamId && String(p.team_number) !== String(teamId));
+          localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(filtered));
+        }
+      } catch (_) {}
       await fetchLiveData(session.key);
     } catch (err) {
       alert(`Reset Error: ${err.message}`);
@@ -1426,8 +1445,8 @@ export default function GameAdminPage() {
                         <span>Reset All 10 Teams</span>
                       </button>
                     </div>
-                    <p className="text-[11px] text-white/50 pt-1">
-                      Reset Passcode: <code className="text-gold font-mono font-bold">THANIMA@CORE26</code> or <code className="text-gold font-mono font-bold">RESET@THANIMA26</code>
+                    <p className="text-[11px] text-white/40 pt-1">
+                      Authorized Master Organizers only. Enter your confirmation passcode to proceed.
                     </p>
                   </div>
                 </div>

@@ -1227,6 +1227,7 @@ export async function updateTeamRoster(teamId, { name, passcode, members }) {
 }
 
 export async function resetTeam(teamId) {
+  const now = new Date().toISOString();
   if (isSupabaseConfigured) {
     try {
       await supabase
@@ -1240,7 +1241,8 @@ export async function resetTeam(teamId) {
           claimed_boat_question: null,
           approved_photo_targets: [],
           marshal_feedback: null,
-          updated_at: new Date().toISOString()
+          reset_at: now,
+          updated_at: now
         })
         .eq('id', teamId);
       await supabase.from('scans').delete().eq('team_id', teamId);
@@ -1258,14 +1260,30 @@ export async function resetTeam(teamId) {
     team.claimed_boat_question = null;
     team.approved_photo_targets = [];
     team.marshal_feedback = null;
+    team.reset_at = now;
+    team.updated_at = now;
     store.scans = store.scans.filter((s) => s.team_id !== team.id);
     store.photoSubmissions = (store.photoSubmissions || []).filter((s) => s.team_id !== team.id);
+
+    // Release any boat questions claimed by this team
+    if (store.boatQuestions) {
+      store.boatQuestions.forEach((bq) => {
+        if (bq.claimedByTeamId === team.id || bq.claimedByTeamNumber === team.team_number) {
+          bq.claimedByTeamId = null;
+          bq.claimedByTeamName = null;
+          bq.claimedByTeamNumber = null;
+          bq.claimedAt = null;
+        }
+      });
+    }
+
     writeLocalStore(store);
   }
   return true;
 }
 
 export async function resetAllTeams() {
+  const now = new Date().toISOString();
   if (isSupabaseConfigured) {
     try {
       await supabase
@@ -1279,13 +1297,39 @@ export async function resetAllTeams() {
           claimed_boat_question: null,
           approved_photo_targets: [],
           marshal_feedback: null,
-          updated_at: new Date().toISOString()
+          reset_at: now,
+          updated_at: now
         })
         .neq('id', 'non-existent');
       await supabase.from('scans').delete().neq('id', 'non-existent');
     } catch (_) {}
   }
-  initInitialStore();
+
+  const store = initInitialStore();
+  store.last_global_reset = now;
+  store.teams.forEach((t) => {
+    t.current_step = 0;
+    t.points = 0;
+    t.completed_at = null;
+    t.photo_skips_used = 0;
+    t.boat_question_unlocked = false;
+    t.claimed_boat_question = null;
+    t.approved_photo_targets = [];
+    t.marshal_feedback = null;
+    t.reset_at = now;
+    t.updated_at = now;
+  });
+  store.scans = [];
+  store.photoSubmissions = [];
+  if (store.boatQuestions) {
+    store.boatQuestions.forEach((bq) => {
+      bq.claimedByTeamId = null;
+      bq.claimedByTeamName = null;
+      bq.claimedByTeamNumber = null;
+      bq.claimedAt = null;
+    });
+  }
+  writeLocalStore(store);
   return true;
 }
 
