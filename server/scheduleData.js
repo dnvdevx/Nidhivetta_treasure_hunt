@@ -832,7 +832,7 @@ A little shop keeps your next clue inside.`,
       title: 'Rules & Instructions',
       items: [
         { num: 1, title: 'Report to the Location', text: 'Solve the station riddle, find the location, and assemble with your squad before the Movie Game coordinator.' },
-        { num: 2, title: 'Cinematic Challenges', text: 'Listen to iconic Malayalam movie dialogues, signature background scores, or visual film stills.' },
+        { num: 2, title: 'Identify the Movie', text: 'Listen to the coordinator\'s clue on a movie and identify the movie.' },
         { num: 3, title: 'Team Consensus', text: 'Confer with your teammates and announce your final answer within the time limit.' },
         { num: 4, title: 'Earn Marshal Approval', text: 'Correctly identifying the films or characters earns the coordinator\'s approval or QR scan.' }
       ],
