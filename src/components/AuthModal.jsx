@@ -146,7 +146,6 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
         {!stationQr ? (
           <div className="mt-5 space-y-4">
             <div className="text-center p-3 rounded-2xl bg-inset border border-white/10">
-              <span className="text-2xl block mb-1">📍</span>
               <h3 className="font-serif text-base font-bold text-white">Find Your Starting Station</h3>
               <p className="text-xs text-white/60 mt-1 leading-relaxed">
                 Scan the physical QR code placed at your designated station to unlock entry.

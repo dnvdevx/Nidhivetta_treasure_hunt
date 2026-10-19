@@ -103,7 +103,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
       const qNum = data.boatQuestion?.questionBoatNumber;
       if (qNum) setClaimedBoatNum(qNum);
       setUnlockedQuestionText(data.question || data.boatQuestion?.question || '');
-      setSuccessMsg(data.message || '✓ Question Unlocked! Now find the boat displaying the correct answer.');
+      setSuccessMsg(data.message || 'Question Unlocked! Now find the boat displaying the correct answer.');
       if (onSyncState) onSyncState();
     } catch (err) {
       setError(err.message);
@@ -141,7 +141,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
         throw new Error(data.error || 'Answer verification failed.');
       }
 
-      setSuccessMsg(data.message || '🎉 Splendid victory! Correct vessel discovered!');
+      setSuccessMsg(data.message || 'Splendid victory! Correct vessel discovered!');
       if (onTaskCompleted) {
         onTaskCompleted(data);
       }
@@ -160,12 +160,9 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
       {/* Overview Banner: Authentic Vallamkali Challenge */}
       <div className="rounded-2xl border border-gold/40 bg-gradient-to-b from-[#2b0a07] via-card to-inset p-4 shadow-xl">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-3xl">🛶</span>
-            <div>
-              <h4 className="font-serif text-base font-bold text-gold">Vallamkali Boat Challenge</h4>
-              <p className="text-[11px] text-white/70">5 Campus Locations • 2 Boats Per Location</p>
-            </div>
+          <div>
+            <h4 className="font-serif text-base font-bold text-gold">Vallamkali Boat Challenge</h4>
+            <p className="text-[11px] text-white/70">5 Campus Locations • 2 Boats Per Location</p>
           </div>
           <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border border-gold/40 bg-gold/15 text-gold">
             {questionUnlocked ? 'Step 2: Answer Code' : 'Step 1: Question Code'}
@@ -179,14 +176,11 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
       {/* 5 Hidden Campus Locations Selector */}
       <div className="rounded-2xl border border-gold/30 bg-inset/90 p-4 space-y-3 shadow-lg">
         <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-base">📍</span>
-            <div>
-              <h5 className="font-serif text-xs font-bold text-gold uppercase tracking-wider">
-                5 Campus Boat Locations
-              </h5>
-              <p className="text-[10px] text-white/60">2 Question Boats hidden at each location</p>
-            </div>
+          <div>
+            <h5 className="font-serif text-xs font-bold text-gold uppercase tracking-wider">
+              5 Campus Boat Locations
+            </h5>
+            <p className="text-[10px] text-white/60">2 Question Boats hidden at each location</p>
           </div>
           <button
             type="button"
@@ -225,10 +219,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
             {currentLoc && (
               <div className="rounded-xl border border-gold/40 bg-card/90 p-3.5 space-y-2 animate-fadeIn shadow-inner">
                 <div className="flex items-center justify-between text-[11px] font-bold text-gold">
-                  <span className="flex items-center gap-1.5">
-                    <span>🧭</span>
-                    <span>{currentLoc.title || `Location ${currentLoc.locationNumber}`}</span>
-                  </span>
+                  <span>{currentLoc.title || `Location ${currentLoc.locationNumber}`}</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gold/15 border border-gold/30 text-gold">
                     2 Boats Hidden Here
                   </span>
@@ -300,7 +291,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
               disabled={loading || questionCodeInput.trim().length !== 6}
               className="w-full rounded-xl bg-gold py-3 text-xs font-bold text-bg transition hover:bg-gold/90 active:scale-95 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2"
             >
-              {loading ? 'Unlocking Question...' : '🔓 Unlock Challenge Question'}
+              {loading ? 'Unlocking Question...' : 'Unlock Challenge Question'}
             </button>
           </form>
         </div>
@@ -316,7 +307,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
                 </svg>
                 {claimedBoatNum ? `Question Boat #${claimedBoatNum} Locked to Your Team` : 'Question Unlocked'}
               </span>
-              <span className="text-[10px] text-white/40">Step 1 Complete ✓</span>
+              <span className="text-[10px] text-white/40">Step 1 Complete</span>
             </div>
 
             <div className="rounded-xl bg-black/40 p-3 border border-gold/20">
@@ -366,7 +357,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
                 disabled={loading || answerCodeInput.trim().length !== 6}
                 className="w-full rounded-xl bg-gold py-3.5 text-sm font-bold text-bg transition hover:bg-gold/90 active:scale-95 disabled:opacity-50 shadow-lg flex items-center justify-center gap-2"
               >
-                {loading ? 'Verifying Answer Vessel...' : '🛶 Verify Answer & Complete Trial'}
+                {loading ? 'Verifying Answer Vessel...' : 'Verify Answer & Complete Trial'}
               </button>
             </form>
           </div>

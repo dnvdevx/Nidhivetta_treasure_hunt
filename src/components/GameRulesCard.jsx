@@ -20,18 +20,13 @@ export default function GameRulesCard({ rules, gameName }) {
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-3.5 text-left transition hover:bg-white/5"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{isHotCold ? '🔥❄️' : '📜'}</span>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h4 className="font-serif text-sm font-bold text-gold tracking-wide">
-                Rules & Regulations
-              </h4>
-            </div>
-            <p className="text-[11px] text-white/60">
-              {rules.title || 'Station Instructions'} • {rules.items.length} Rules
-            </p>
-          </div>
+        <div>
+          <h4 className="font-serif text-sm font-bold text-gold tracking-wide">
+            Rules & Regulations
+          </h4>
+          <p className="text-[11px] text-white/60">
+            {rules.title || 'Station Instructions'} • {rules.items.length} Rules
+          </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs font-semibold text-gold/80">
@@ -75,15 +70,12 @@ export default function GameRulesCard({ rules, gameName }) {
                           return (
                             <div
                               key={sIdx}
-                              className={`flex items-start gap-2 p-2 rounded-lg border leading-tight ${
+                              className={`p-2 rounded-lg border leading-tight ${
                                 isHot
                                   ? 'border-orange-500/40 bg-orange-950/40 text-orange-200'
                                   : 'border-cyan-500/40 bg-cyan-950/40 text-cyan-200'
                               }`}
                             >
-                              <span className="text-base leading-none">
-                                {isHot ? '🔥' : '❄️'}
-                              </span>
                               <div>
                                 <span
                                   className={`text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${

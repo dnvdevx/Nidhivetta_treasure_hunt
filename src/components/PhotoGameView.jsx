@@ -94,14 +94,11 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       {/* Header status */}
       <div className="rounded-2xl border border-gold/30 bg-inset/90 p-4 shadow-lg space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">📸</span>
-            <div>
-              <h4 className="font-serif text-base font-bold text-gold">Photo Game</h4>
-              <p className="text-[11px] text-white/60">
-                Identify & photograph 3 campus locations
-              </p>
-            </div>
+          <div>
+            <h4 className="font-serif text-base font-bold text-gold">Photo Game</h4>
+            <p className="text-[11px] text-white/60">
+              Identify & photograph 3 campus locations
+            </p>
           </div>
           <div className="text-right">
             <span className="text-[10px] font-bold text-white uppercase tracking-wider block">Approved</span>
@@ -161,7 +158,13 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
                       isApproved ? 'bg-emerald-500 text-bg' : 'bg-gold/20 text-gold'
                     }`}>
-                      {isApproved ? '✓' : i + 1}
+                      {isApproved ? (
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        i + 1
+                      )}
                     </span>
                     <h5 className="font-serif font-bold text-sm text-white">
                       {tgt.title}
@@ -175,17 +178,17 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                 {/* Status pill */}
                 {isApproved && (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 whitespace-nowrap">
-                    ✓ Approved
+                    Approved
                   </span>
                 )}
                 {isPending && (
                   <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2.5 py-0.5 rounded-full border border-amber-500/30 whitespace-nowrap animate-pulse">
-                    ⏳ Under Review
+                    Under Review
                   </span>
                 )}
                 {isRejected && (
                   <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-2.5 py-0.5 rounded-full border border-red-500/30 whitespace-nowrap">
-                    ✕ Retake Photo
+                    Retake Photo
                   </span>
                 )}
               </div>
@@ -220,11 +223,11 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                     {/* Option 1: Live Camera Snap */}
                     <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-gold text-bg px-3 py-1.5 text-xs font-bold hover:bg-gold/90 active:scale-95 transition shadow-md">
                       {uploadingTarget === tgt.index ? (
-                        '⏳ Uploading...'
+                        'Uploading...'
                       ) : submission ? (
-                        '📸 Retake'
+                        'Retake'
                       ) : (
-                        '📷 Camera'
+                        'Camera'
                       )}
                       <input
                         type="file"
@@ -238,7 +241,7 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
 
                     {/* Option 2: Upload from Device / Gallery */}
                     <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/25 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-white/20 active:scale-95 transition">
-                      {uploadingTarget === tgt.index ? '...' : '📁 Gallery'}
+                      {uploadingTarget === tgt.index ? '...' : 'Gallery'}
                       <input
                         type="file"
                         accept="image/*"
@@ -258,14 +261,14 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       {/* Next locked target indicator if still in progress */}
       {!isAllApproved && approvedCount < 2 && targets.length < 3 && (
         <div className="rounded-xl border border-dashed border-white/15 bg-card/40 p-3 text-center text-xs text-white/50">
-          🔒 Next campus location will unlock as soon as the current photo is approved!
+          Next campus location will unlock as soon as the current photo is approved.
         </div>
       )}
 
       {/* Triumph Notice if all 3 approved */}
       {isAllApproved && (
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/70 p-3.5 text-center text-xs text-emerald-200 font-bold leading-relaxed animate-pulse">
-          🎉 All 3 campus location photos approved! Trial completed!
+          All 3 campus location photos approved! Trial completed!
         </div>
       )}
 
@@ -279,9 +282,12 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
             <img src={previewImage} alt="Enlarged" className="rounded-2xl max-h-[80vh] shadow-2xl" />
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card border border-gold text-gold font-bold flex items-center justify-center shadow"
+              aria-label="Close"
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card border border-gold text-gold flex items-center justify-center shadow hover:bg-gold hover:text-bg transition"
             >
-              ✕
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>

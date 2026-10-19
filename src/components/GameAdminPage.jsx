@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 
 // Station definitions & themes
 const STATIONS = [
-  { id: 'Hot n Cold', name: 'Hot n Cold', icon: '🔥', passcode: 'FLAME#82HC', description: 'Football/racket courts colour hunt' },
-  { id: 'Jigsaw', name: 'Jigsaw', icon: '🧩', passcode: 'PIECE#39JS', description: 'Envelope & puzzle piece decoding' },
-  { id: 'Photo Game', name: 'Photo Game', icon: '📸', passcode: 'RELIC#61PG', description: '3 campus locations full photo capture' },
-  { id: 'Movie Game', name: 'Movie Game', icon: '🎬', passcode: 'CINEMA#82MG', description: 'Ladies hostel milk stall movie trivia' },
-  { id: 'Boat Game', name: 'Boat Game', icon: '🛶', passcode: 'VALLAM#55BG', description: '5-harbor 20-boat fleet trial' },
-  { id: 'Final Game', name: 'Final Game', icon: '🏆', passcode: 'MAKUTAM#99FG', description: 'Main stage sprint & Makutam crown' }
+  { id: 'Hot n Cold', name: 'Hot n Cold', passcode: 'FLAME#82HC', description: 'Football/racket courts colour hunt' },
+  { id: 'Jigsaw', name: 'Jigsaw', passcode: 'PIECE#39JS', description: 'Envelope & puzzle piece decoding' },
+  { id: 'Photo Game', name: 'Photo Game', passcode: 'RELIC#61PG', description: '3 campus locations full photo capture' },
+  { id: 'Movie Game', name: 'Movie Game', passcode: 'CINEMA#82MG', description: 'Ladies hostel milk stall movie trivia' },
+  { id: 'Boat Game', name: 'Boat Game', passcode: 'VALLAM#55BG', description: '5-harbor 20-boat fleet trial' },
+  { id: 'Final Game', name: 'Final Game', passcode: 'MAKUTAM#99FG', description: 'Main stage sprint & Makutam crown' }
 ];
 
 const TEAM_TREE_NUMBERS = {
@@ -215,7 +215,7 @@ export default function GameAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Approval failed');
 
-      showActionToast('✓ Team approved! Next trial & letter unlocked.');
+      showActionToast('Team approved! Next trial & letter unlocked.');
       await fetchLiveData(session.key);
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -240,7 +240,7 @@ export default function GameAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Denial failed');
 
-      showActionToast(`✓ Notice sent to ${denyingTeam.name}. Team screen updated with retry instructions.`);
+      showActionToast(`Notice sent to ${denyingTeam.name}. Team screen updated with retry instructions.`);
       setDenyingTeam(null);
       setCustomDenyReason('');
       await fetchLiveData(session.key);
@@ -266,8 +266,8 @@ export default function GameAdminPage() {
 
       showActionToast(
         data.taskCompleted
-          ? '🎉 3 Photos Approved! Team automatically completed the Photo Game!'
-          : `✓ Photo marked as ${status}!`
+          ? '3 Photos Approved! Team automatically completed the Photo Game!'
+          : `Photo marked as ${status}.`
       );
       await fetchLiveData(session.key);
     } catch (err) {
@@ -289,7 +289,7 @@ export default function GameAdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to release claim');
-      showActionToast(`✓ Question Boat #${boatNum} claim released!`);
+      showActionToast(`Question Boat #${boatNum} claim released!`);
       await fetchLiveData(session.key);
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -314,7 +314,6 @@ export default function GameAdminPage() {
           <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-gold/15 blur-2xl pointer-events-none" />
 
           <div className="text-center space-y-1">
-            <span className="text-3xl block">👑</span>
             <h1 className="font-serif text-2xl sm:text-3xl font-black text-gold tracking-tight">
               THANIMA 2026
             </h1>
@@ -351,20 +350,20 @@ export default function GameAdminPage() {
               disabled={loading}
               className="w-full rounded-2xl bg-gold py-3.5 text-sm font-bold text-bg hover:bg-gold/90 active:scale-98 transition shadow-lg disabled:opacity-50"
             >
-              {loading ? 'Authenticating...' : 'Sign In to Station ➔'}
+              {loading ? 'Authenticating...' : 'Sign In to Station'}
             </button>
           </form>
 
           {/* Quick guide for volunteers */}
           <div className="mt-6 pt-5 border-t border-white/10 text-xs text-white/50 space-y-2">
             <div className="flex items-start gap-2">
-              <span className="text-gold font-bold">🎯</span>
+              <span className="font-bold text-gold">•</span>
               <p>
                 <strong>Game Volunteers:</strong> Entering your station passcode opens <em>only your game</em> with 1-click approvals for zero confusion.
               </p>
             </div>
             <div className="flex items-start gap-2">
-              <span className="text-gold font-bold">🔑</span>
+              <span className="font-bold text-gold">•</span>
               <p>
                 <strong>Master Organizers:</strong> Common password unlocks all 6 stations, live standings, boat fleet & tools.
               </p>
@@ -386,7 +385,6 @@ export default function GameAdminPage() {
       <header className="sticky top-0 z-40 border-b border-gold/20 bg-bg/95 backdrop-blur-md px-4 sm:px-6 py-3.5 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{session.icon || '👑'}</span>
             <div>
               <h2 className="font-serif text-lg font-bold text-gold">
                 {session.isMaster ? 'Master Command Desk' : `${activeStation} Volunteer Desk`}
@@ -412,7 +410,7 @@ export default function GameAdminPage() {
               onClick={handleLogout}
               className="rounded-xl border border-white/20 bg-inset px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white hover:border-red-400/50 transition active:scale-95"
             >
-              Sign Out 🚪
+              Sign Out
             </button>
           </div>
         </div>
@@ -510,7 +508,7 @@ export default function GameAdminPage() {
                             onClick={() => handleApproveTeam(team.id, 'Photo Game')}
                             className="rounded-2xl bg-gold hover:bg-gold/90 text-bg px-4 py-2.5 text-xs font-black active:scale-95 transition shadow-xl flex items-center gap-1.5"
                           >
-                            <span>🏆</span> Overall Game Approval ➔
+                            Overall Game Approval ➔
                           </button>
                         </div>
                       </div>
@@ -549,7 +547,6 @@ export default function GameAdminPage() {
                                   />
                                 ) : (
                                   <div className="h-24 w-24 rounded-xl border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[11px] text-white/30 text-center p-2 flex-shrink-0">
-                                    <span className="text-lg">📷</span>
                                     <span>Not uploaded</span>
                                   </div>
                                 )}
@@ -562,17 +559,17 @@ export default function GameAdminPage() {
                                       </span>
                                       {isApproved && (
                                         <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
-                                          ✓ Approved
+                                          Approved
                                         </span>
                                       )}
                                       {isPending && (
                                         <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full animate-pulse">
-                                          ⏳ Under Review
+                                          Under Review
                                         </span>
                                       )}
                                       {isRejected && (
                                         <span className="text-[10px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                          ✕ Rejected
+                                          Rejected
                                         </span>
                                       )}
                                     </div>
@@ -592,13 +589,13 @@ export default function GameAdminPage() {
                                         onClick={() => handleReviewPhoto(sub.id, 'approved')}
                                         className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
                                       >
-                                        ✓ Approve
+                                        Approve
                                       </button>
                                       <button
                                         onClick={() => handleReviewPhoto(sub.id, 'rejected')}
                                         className="flex-1 rounded-xl bg-red-800 hover:bg-red-700 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
                                       >
-                                        ✕ Reject
+                                        Reject
                                       </button>
                                     </div>
                                   )}
@@ -638,7 +635,7 @@ export default function GameAdminPage() {
                       </div>
 
                       <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 text-xs font-bold">
-                        Present Here 🟢
+                        Present Here
                       </span>
                     </div>
 
@@ -677,7 +674,7 @@ export default function GameAdminPage() {
                     {/* Active Retry Notice if sent */}
                     {team.marshal_feedback && (
                       <div className="rounded-2xl border border-red-500/40 bg-red-950/60 p-3 text-xs text-red-200 space-y-0.5">
-                        <span className="font-bold text-red-300">⚠️ Active Retry Notice: </span>
+                        <span className="font-bold text-red-300">Active Retry Notice: </span>
                         <p>"{team.marshal_feedback.reason}"</p>
                       </div>
                     )}
@@ -688,13 +685,13 @@ export default function GameAdminPage() {
                         onClick={() => handleApproveTeam(team.id, activeStation)}
                         className="flex-1 rounded-2xl bg-emerald-600 hover:bg-emerald-500 py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl active:scale-95 transition flex items-center justify-center gap-2"
                       >
-                        <span className="text-base">✅</span> Approve Team & Advance
+                        Approve Team & Advance
                       </button>
                       <button
                         onClick={() => setDenyingTeam(team)}
                         className="rounded-2xl bg-red-950/70 hover:bg-red-900 border border-red-500/40 px-4 py-3.5 text-xs font-bold text-red-300 active:scale-95 transition"
                       >
-                        ⚠️ Request Retry
+                        Request Retry
                       </button>
                     </div>
                   </div>
@@ -715,7 +712,7 @@ export default function GameAdminPage() {
                   masterTab === 'stations' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                <span>🎯</span> Game Stations
+                Game Stations
               </button>
               <button
                 onClick={() => setMasterTab('teams')}
@@ -723,7 +720,7 @@ export default function GameAdminPage() {
                   masterTab === 'teams' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                <span>📋</span> All 10 Teams
+                All 10 Teams
               </button>
               <button
                 onClick={() => setMasterTab('boat_fleet')}
@@ -731,7 +728,7 @@ export default function GameAdminPage() {
                   masterTab === 'boat_fleet' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                <span>🛶</span> Boat Fleet (20 Boats)
+                Boat Fleet (20 Boats)
               </button>
             </div>
 
@@ -758,7 +755,7 @@ export default function GameAdminPage() {
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xl">{st.icon}</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-gold/80">Station</span>
                             <span
                               className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                 count > 0
@@ -830,7 +827,7 @@ export default function GameAdminPage() {
                         <div className="rounded-xl bg-inset p-2.5 flex items-center justify-between border border-white/5">
                           <span className="text-xs text-white/60">Current Trial:</span>
                           <span className="text-xs font-bold text-gold">
-                            {isFinished ? 'Completed 🏆' : t.currentGame}
+                            {isFinished ? 'Completed' : t.currentGame}
                           </span>
                         </div>
 
@@ -852,7 +849,7 @@ export default function GameAdminPage() {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                   <div>
-                    <h3 className="font-serif text-xl font-bold text-gold">🛶 20-Boat Fleet Deployment Plan</h3>
+                    <h3 className="font-serif text-xl font-bold text-gold">20-Boat Fleet Deployment Plan</h3>
                     <p className="text-xs text-white/60">
                       5 Campus Locations • 2 Question Boats per location • 10 Question Boats (1–10) & 10 Answer Boats (11–20)
                     </p>
@@ -863,7 +860,7 @@ export default function GameAdminPage() {
                     rel="noreferrer"
                     className="inline-flex items-center gap-2 rounded-xl bg-gold/20 border border-gold/40 px-3.5 py-2 text-xs font-bold text-gold hover:bg-gold/30 transition self-start sm:self-auto"
                   >
-                    <span>🖨️</span> Print 20 Boat Tags
+                    Print 20 Boat Tags
                   </a>
                 </div>
 
@@ -1004,9 +1001,12 @@ export default function GameAdminPage() {
               </div>
               <button
                 onClick={() => setDenyingTeam(null)}
-                className="text-white/50 hover:text-white text-lg font-bold"
+                aria-label="Close"
+                className="text-white/50 hover:text-white p-1"
               >
-                ✕
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
@@ -1071,9 +1071,12 @@ export default function GameAdminPage() {
             <img src={enlargedPhoto} alt="Enlarged Relic" className="rounded-3xl max-h-[85vh] shadow-2xl" />
             <button
               onClick={() => setEnlargedPhoto(null)}
-              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-card border border-gold text-gold font-bold flex items-center justify-center shadow-lg"
+              aria-label="Close"
+              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-card border border-gold text-gold flex items-center justify-center shadow-lg hover:bg-gold hover:text-bg transition"
             >
-              ✕
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>

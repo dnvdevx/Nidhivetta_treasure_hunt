@@ -31,8 +31,10 @@ export default function ProfileModal({ isOpen, onClose, team, member, onLogout }
             <p className="text-[11px] uppercase tracking-wider text-gold font-bold">Team Profile</p>
             <h2 className="text-2xl font-bold text-white mt-0.5">{team.name}</h2>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white p-1 text-lg font-bold">
-            ✕
+          <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white p-1">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 

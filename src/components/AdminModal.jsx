@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 
 const STATIONS = [
-  { id: 'Hot n Cold', name: 'Hot n Cold', icon: '🔥' },
-  { id: 'Jigsaw', name: 'Jigsaw', icon: '🧩' },
-  { id: 'Photo Game', name: 'Photo Game', icon: '📸' },
-  { id: 'Movie Game', name: 'Movie Game', icon: '🎬' },
-  { id: 'Boat Game', name: 'Boat Game', icon: '🛶' },
-  { id: 'Final Game', name: 'Final Game', icon: '🏆' },
-  { id: 'Starting Station', name: 'Starting Stations', icon: '🚪' }
+  { id: 'Hot n Cold', name: 'Hot n Cold' },
+  { id: 'Jigsaw', name: 'Jigsaw' },
+  { id: 'Photo Game', name: 'Photo Game' },
+  { id: 'Movie Game', name: 'Movie Game' },
+  { id: 'Boat Game', name: 'Boat Game' },
+  { id: 'Final Game', name: 'Final Game' },
+  { id: 'Starting Station', name: 'Starting Stations' }
 ];
 
 const PHOTO_TARGETS = [
@@ -133,7 +133,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update station');
-      setActionMessage(`✓ Saved Starting Station ${stationId}! Assigned teams: ${allowedTeamNumbers.join(' & ')}`);
+      setActionMessage(`Saved Starting Station ${stationId}! Assigned teams: ${allowedTeamNumbers.join(' & ')}`);
       setTimeout(() => setActionMessage(''), 4500);
       setEditingStation(null);
       await fetchDashboardData(adminKey);
@@ -159,8 +159,8 @@ export default function AdminModal({ isOpen, onClose }) {
 
       setActionMessage(
         data.taskCompleted
-          ? `🎉 Approved! Team now has 3 valid photos. Task completed automatically!`
-          : `✓ Photo marked as ${status}!`
+          ? `Approved! Team now has 3 valid photos. Task completed automatically!`
+          : `Photo marked as ${status}.`
       );
       setTimeout(() => setActionMessage(''), 4500);
       await fetchDashboardData(adminKey);
@@ -185,7 +185,7 @@ export default function AdminModal({ isOpen, onClose }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Approval failed');
 
-      setActionMessage(`✓ Team approved! Next trial & letter unlocked.`);
+      setActionMessage(`Team approved! Next trial & letter unlocked.`);
       setTimeout(() => setActionMessage(''), 4500);
       await fetchDashboardData(adminKey);
     } catch (err) {
@@ -209,7 +209,7 @@ export default function AdminModal({ isOpen, onClose }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Denial failed');
 
-      setActionMessage(`✓ Team marked for Retry. Notice sent to team device.`);
+      setActionMessage(`Team marked for Retry. Notice sent to team device.`);
       setDenyingTeam(null);
       setCustomDenyReason('');
       setTimeout(() => setActionMessage(''), 4500);
@@ -235,7 +235,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Update failed');
-      setActionMessage(`✓ Saved details for ${team.name}!`);
+      setActionMessage(`Saved details for ${team.name}!`);
       setTimeout(() => setActionMessage(''), 4000);
       await fetchDashboardData(adminKey);
     } catch (err) {
@@ -253,7 +253,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
-      setActionMessage(`✓ Team reset!`);
+      setActionMessage(`Team reset!`);
       await fetchDashboardData(adminKey);
     } catch (err) {
       setActionMessage(`Error: ${err.message}`);
@@ -261,7 +261,7 @@ export default function AdminModal({ isOpen, onClose }) {
   };
 
   const handleResetAll = async () => {
-    if (!window.confirm('⚠️ Reset ALL 10 teams and all photo submissions to 0?')) return;
+    if (!window.confirm('Reset ALL 10 teams and all photo submissions to 0?')) return;
     try {
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
@@ -270,7 +270,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
-      setActionMessage('✓ All 10 teams reset to step 0!');
+      setActionMessage('All 10 teams reset to step 0!');
       await fetchDashboardData(adminKey);
     } catch (err) {
       setActionMessage(`Error: ${err.message}`);
@@ -295,7 +295,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update boat question');
-      setActionMessage(`✓ Saved boat challenge & codes for Team ${teamNumber}!`);
+      setActionMessage(`Saved boat challenge & codes for Team ${teamNumber}!`);
       setTimeout(() => setActionMessage(''), 4000);
       setEditingBoatQ(null);
       await fetchDashboardData(adminKey);
@@ -318,7 +318,7 @@ export default function AdminModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to clear boat claim');
-      setActionMessage('✓ Boat claim released! This question boat is now available for any team.');
+      setActionMessage('Boat claim released! This question boat is now available for any team.');
       setTimeout(() => setActionMessage(''), 4000);
       await fetchDashboardData(adminKey);
     } catch (err) {
@@ -340,8 +340,10 @@ export default function AdminModal({ isOpen, onClose }) {
             <h3 className="font-serif text-2xl font-bold text-gold">Organizers & Marshals Desk</h3>
             <p className="text-[11px] text-white/50 tracking-wider uppercase">Live Approvals • Photo Review • Roster Feed</p>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white p-1 text-lg font-bold">
-            ✕
+          <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white p-1">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
@@ -382,7 +384,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'teams_matrix' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                📋 10 Teams Tracker (Live)
+                10 Teams Tracker (Live)
               </button>
               <button
                 onClick={() => setTab('volunteer_station')}
@@ -390,7 +392,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'volunteer_station' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                🎮 Station Volunteer View
+                Station Volunteer View
                 <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded font-mono">
                   {selectedStation}
                 </span>
@@ -401,7 +403,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'boat_game' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                🛶 Boat Fleet (10 Q&A)
+                Boat Fleet (10 Q&A)
               </button>
               <button
                 onClick={() => setTab('teams')}
@@ -409,7 +411,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'teams' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                👥 Rosters & Passcodes
+                Rosters & Passcodes
               </button>
               <button
                 onClick={() => setTab('start_qrs')}
@@ -417,7 +419,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'start_qrs' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                🚪 5 Starting QRs
+                5 Starting QRs
               </button>
               <button
                 onClick={() => setTab('game_qrs')}
@@ -425,7 +427,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   tab === 'game_qrs' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
                 }`}
               >
-                📍 6 Station QRs
+                6 Station QRs
               </button>
               <button
                 onClick={() => setTab('reset')}
@@ -449,8 +451,8 @@ export default function AdminModal({ isOpen, onClose }) {
                 {/* Station Ticker: Click a game to volunteer directly at that station */}
                 <div className="rounded-2xl border border-white/10 bg-inset/70 p-3.5 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-white/80">🎮 Click Any Game to Act as that Station's Volunteer:</span>
-                    <span className="text-[11px] text-white/50">🟢 Live updates active</span>
+                    <span className="font-bold text-white/80">Click Any Game to Act as that Station's Volunteer:</span>
+                    <span className="text-[11px] text-white/50">Live updates active</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {STATIONS.map((st) => {
@@ -514,7 +516,7 @@ export default function AdminModal({ isOpen, onClose }) {
                               {t.points || 0} pts
                             </span>
                             <span className="text-[10px] uppercase tracking-wider text-white/50">
-                              {isFinished ? 'Completed 🏆' : `Step ${t.current_step || 0} of 7`}
+                              {isFinished ? 'Completed' : `Step ${t.current_step || 0} of 7`}
                             </span>
                           </div>
                         </div>
@@ -526,7 +528,7 @@ export default function AdminModal({ isOpen, onClose }) {
                               Currently Playing
                             </span>
                             <span className="font-bold text-sm text-gold flex items-center gap-1.5 mt-0.5">
-                              <span>🎮</span> {t.currentGame || 'Starting Station'}
+                              {t.currentGame || 'Starting Station'}
                             </span>
                           </div>
                           {!isFinished && (
@@ -553,7 +555,7 @@ export default function AdminModal({ isOpen, onClose }) {
                         {/* Denial notice if active */}
                         {t.marshal_feedback && (
                           <div className="rounded-lg border border-red-500/40 bg-red-950/50 p-2 text-[11px] text-red-200">
-                            <span className="font-bold text-red-300">⚠️ Retry Notice: </span>
+                            <span className="font-bold text-red-300">Retry Notice: </span>
                             "{t.marshal_feedback.reason}"
                           </div>
                         )}
@@ -565,13 +567,13 @@ export default function AdminModal({ isOpen, onClose }) {
                               onClick={() => handleMarshalDirectApprove(t.id, t.currentGame)}
                               className="flex-1 rounded-xl bg-gold/20 hover:bg-gold/30 border border-gold/50 py-2 text-xs font-bold text-gold active:scale-95 transition flex items-center justify-center gap-1.5 shadow"
                             >
-                              <span>⚡</span> Pass Station Task
+                              Pass Station Task
                             </button>
                             <button
                               onClick={() => setDenyingTeam(t)}
                               className="rounded-xl bg-red-950/60 hover:bg-red-900 border border-red-500/40 px-3 py-2 text-xs font-bold text-red-300 active:scale-95 transition"
                             >
-                              ✕ Request Retry
+                              Request Retry
                             </button>
                           </div>
                         )}
@@ -624,9 +626,6 @@ export default function AdminModal({ isOpen, onClose }) {
                 <div className="rounded-2xl border border-gold/30 bg-inset p-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">
-                        {STATIONS.find((s) => normalizeGameName(s.id) === normalizeGameName(selectedStation))?.icon || '🎮'}
-                      </span>
                       <h4 className="font-serif text-lg font-bold text-gold">
                         Station Volunteer: {selectedStation}
                       </h4>
@@ -713,7 +712,7 @@ export default function AdminModal({ isOpen, onClose }) {
                                     onClick={() => handleMarshalDirectApprove(t.id, 'Photo Game')}
                                     className="rounded-xl bg-gold hover:bg-gold/90 text-bg px-4 py-2 text-xs font-bold active:scale-95 transition shadow-lg flex items-center gap-1.5"
                                   >
-                                    <span>🏆</span> Overall Game Approval
+                                    Overall Game Approval
                                   </button>
                                 </div>
                               </div>
@@ -752,7 +751,6 @@ export default function AdminModal({ isOpen, onClose }) {
                                           />
                                         ) : (
                                           <div className="h-20 w-20 rounded-lg border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[10px] text-white/30 text-center p-1 flex-shrink-0">
-                                            <span>📷</span>
                                             <span>Not uploaded</span>
                                           </div>
                                         )}
@@ -765,17 +763,17 @@ export default function AdminModal({ isOpen, onClose }) {
                                               </span>
                                               {isApproved && (
                                                 <span className="text-[10px] text-emerald-400 font-bold">
-                                                  ✓ Approved
+                                                  Approved
                                                 </span>
                                               )}
                                               {isPending && (
                                                 <span className="text-[10px] text-amber-300 font-bold animate-pulse">
-                                                  ⏳ Under Review
+                                                  Under Review
                                                 </span>
                                               )}
                                               {isRejected && (
                                                 <span className="text-[10px] text-red-400 font-bold">
-                                                  ✕ Rejected
+                                                  Rejected
                                                 </span>
                                               )}
                                             </div>
@@ -795,13 +793,13 @@ export default function AdminModal({ isOpen, onClose }) {
                                                 onClick={() => handleReviewPhoto(sub.id, 'approved')}
                                                 className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 py-1 text-[11px] font-bold text-white shadow transition"
                                               >
-                                                ✓ Approve
+                                                Approve
                                               </button>
                                               <button
                                                 onClick={() => handleReviewPhoto(sub.id, 'rejected')}
                                                 className="flex-1 rounded-lg bg-red-800 hover:bg-red-700 py-1 text-[11px] font-bold text-white shadow transition"
                                               >
-                                                ✕ Reject
+                                                Reject
                                               </button>
                                             </div>
                                           )}
@@ -854,7 +852,7 @@ export default function AdminModal({ isOpen, onClose }) {
 
                           {t.marshal_feedback && (
                             <div className="rounded-xl border border-red-500/40 bg-red-950/60 p-2.5 text-xs text-red-200">
-                              <span className="font-bold text-red-300">⚠️ Active Retry Notice: </span>
+                              <span className="font-bold text-red-300">Active Retry Notice: </span>
                               "{t.marshal_feedback.reason}"
                             </div>
                           )}
@@ -864,13 +862,13 @@ export default function AdminModal({ isOpen, onClose }) {
                               onClick={() => handleMarshalDirectApprove(t.id, selectedStation)}
                               className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-2.5 text-xs font-bold text-white shadow-lg active:scale-95 transition flex items-center justify-center gap-1.5"
                             >
-                              <span>✅</span> Approve & Unlock Next
+                              Approve & Unlock Next
                             </button>
                             <button
                               onClick={() => setDenyingTeam(t)}
                               className="rounded-xl bg-red-900/60 hover:bg-red-800 border border-red-500/40 px-3.5 py-2.5 text-xs font-bold text-red-200 active:scale-95 transition"
                             >
-                              ✕ Deny / Retry
+                              Deny / Retry
                             </button>
                           </div>
                         </div>
@@ -887,7 +885,7 @@ export default function AdminModal({ isOpen, onClose }) {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                   <div>
                     <h4 className="font-serif text-base font-bold text-gold">
-                      🛶 20 Fleet Boats: 10 Question Boats + 10 Answer Boats
+                      20 Fleet Boats: 10 Question Boats + 10 Answer Boats
                     </h4>
                     <p className="text-xs text-white/60 mt-0.5">
                       Open to ANY Team (First Come, First Served). A team finds any unoccupied <strong>Question Boat</strong> (entering code locks it to them & reveals question), then solves it and enters the <strong>Answer Boat</strong> code.
@@ -900,7 +898,7 @@ export default function AdminModal({ isOpen, onClose }) {
                       rel="noreferrer"
                       className="rounded-lg bg-gold/20 border border-gold/40 px-3 py-1.5 text-xs font-bold text-gold hover:bg-gold/30 transition flex items-center gap-1.5"
                     >
-                      🖨️ Print 20 Boat Tags
+                      Print 20 Boat Tags
                     </a>
                   </div>
                 </div>
@@ -931,11 +929,11 @@ export default function AdminModal({ isOpen, onClose }) {
                             </span>
                             {claimingTeam ? (
                               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                                🔒 Claimed: {claimingTeam.name}
+                                Claimed: {claimingTeam.name}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                                🟢 Available
+                                Available
                               </span>
                             )}
                           </div>
@@ -1048,7 +1046,7 @@ export default function AdminModal({ isOpen, onClose }) {
                             <div className="rounded-xl border border-gold/20 bg-card/60 p-2.5 space-y-1">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-gold flex items-center gap-1">
-                                  <span>🛶</span> Boat #{qBoatNum} (Question Boat)
+                                  Boat #{qBoatNum} (Question Boat)
                                 </span>
                                 <span className="font-mono text-xs font-black bg-gold/20 border border-gold/40 text-gold px-2 py-0.5 rounded tracking-widest">
                                   {qCode}
@@ -1063,7 +1061,7 @@ export default function AdminModal({ isOpen, onClose }) {
                             <div className="rounded-xl border border-emerald-500/20 bg-card/60 p-2.5 space-y-1">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                                  <span>🎯</span> Boat #{aBoatNum} (Answer Boat)
+                                  Boat #{aBoatNum} (Answer Boat)
                                 </span>
                                 <span className="font-mono text-xs font-black bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-2 py-0.5 rounded tracking-widest">
                                   {aCode}
@@ -1202,14 +1200,14 @@ export default function AdminModal({ isOpen, onClose }) {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
                   <div>
                     <h4 className="font-serif text-base font-bold text-gold">
-                      🚪 5 Starting QR Codes (Configurable Team Assignment)
+                      5 Starting QR Codes (Configurable Team Assignment)
                     </h4>
                     <p className="text-xs text-white/60 mt-0.5">
                       Each QR code features <span className="text-gold font-bold">qr_image.png</span> in the center. You can reassign any station to different teams anytime!
                     </p>
                   </div>
                   <button onClick={() => window.print()} className="rounded-lg bg-gold/20 border border-gold/40 px-3 py-1.5 text-xs font-bold text-gold hover:bg-gold/30 transition flex items-center gap-1.5">
-                    🖨️ Print Station Cards
+                    Print Station Cards
                   </button>
                 </div>
 
@@ -1413,7 +1411,7 @@ export default function AdminModal({ isOpen, onClose }) {
                   onClick={handleResetAll}
                   className="rounded-xl bg-crimson px-5 py-3 text-xs font-bold text-white hover:bg-crimson/80 transition"
                 >
-                  ⚠️ Reset All 10 Teams
+                  Reset All 10 Teams
                 </button>
               </div>
             )}
@@ -1438,9 +1436,12 @@ export default function AdminModal({ isOpen, onClose }) {
                 </div>
                 <button
                   onClick={() => setDenyingTeam(null)}
-                  className="text-white/50 hover:text-white text-lg font-bold"
+                  aria-label="Close"
+                  className="text-white/50 hover:text-white p-1"
                 >
-                  ✕
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
 
@@ -1512,9 +1513,12 @@ export default function AdminModal({ isOpen, onClose }) {
               <img src={enlargedPhoto} alt="Enlarged" className="rounded-2xl max-h-[85vh] shadow-2xl" />
               <button
                 onClick={() => setEnlargedPhoto(null)}
-                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card border border-gold text-gold font-bold flex items-center justify-center shadow"
+                aria-label="Close"
+                className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card border border-gold text-gold flex items-center justify-center shadow hover:bg-gold hover:text-bg transition"
               >
-                ✕
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
           </div>
