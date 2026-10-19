@@ -33,7 +33,7 @@ export default function LeaderboardModal({ isOpen, onClose, currentTeamId }) {
         <div className="flex items-center justify-between border-b border-gold/20 pb-3">
           <div>
             <h3 className="font-serif text-2xl font-bold text-gold">Live Leaderboard</h3>
-            <p className="text-[11px] text-white/50 tracking-wider uppercase mt-0.5">Thanima Nidhivetta Standings</p>
+            <p className="text-[11px] text-white/50 tracking-wider uppercase mt-0.5">Thanima Nidhiveta Standings</p>
           </div>
           <button
             onClick={onClose}

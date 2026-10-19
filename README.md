@@ -1,4 +1,4 @@
-# THANIMA: Nidhivetta Treasure Hunt (KERALAM)
+# THANIMA: Nidhiveta Treasure Hunt (KERALAM)
 
 A full-stack, mobile-friendly treasure hunt web application designed for **Thanima** (the Kerala cultural festival). Teams decipher clues scattered across campus to collect all 7 letters of **K-E-R-A-L-A-M**, scanning station QR codes to unlock the next destination and compete on the live leaderboard.
 

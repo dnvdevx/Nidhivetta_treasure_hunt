@@ -89,7 +89,7 @@ function authenticateToken(req, res, next) {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    app: 'Thanima Nidhivetta (KERALAM) API',
+    app: 'Thanima Nidhiveta (KERALAM) API',
     database: isSupabaseConfigured ? 'Supabase PostgreSQL' : 'Local JSON Store',
     totalTeams: 10,
     timestamp: new Date().toISOString()

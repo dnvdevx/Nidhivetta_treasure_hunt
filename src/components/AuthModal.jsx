@@ -133,7 +133,7 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
             alt="Thanima Logo"
             className="h-14 sm:h-16 max-h-16 mx-auto object-contain drop-shadow mb-2"
           />
-          <p className="text-[10px] sm:text-[11px] tracking-[0.25em] text-gold/90 uppercase font-semibold">Nidhivetta Treasure Hunt</p>
+          <p className="text-[10px] sm:text-[11px] tracking-[0.25em] text-gold/90 uppercase font-semibold">Nidhiveta Treasure Hunt</p>
         </div>
 
         {error && (

@@ -221,7 +221,7 @@ async function generateAll() {
         🖨️ Print All 5 Starting QR Cards
       </button>
     </div>
-    <h1>THANIMA: NIDHIVETTA TREASURE HUNT</h1>
+    <h1>THANIMA: NIDHIVETA TREASURE HUNT</h1>
     <p>5 Starting Stations • 2 Teams Assigned Per Station • QR with Center Emblem</p>
   </div>
 

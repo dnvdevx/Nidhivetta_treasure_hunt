@@ -225,7 +225,7 @@ export default function App() {
             />
             <div>
               <p className="text-[10px] sm:text-[11px] tracking-[0.2em] text-gold/90 font-semibold uppercase">
-                NIDHIVETTA TREASURE HUNT
+                NIDHIVETA TREASURE HUNT
               </p>
             </div>
           </div>
