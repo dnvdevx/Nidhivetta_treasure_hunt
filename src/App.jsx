@@ -3,7 +3,6 @@ import AuthModal from './components/AuthModal';
 import QRScannerModal from './components/QRScannerModal';
 import LeaderboardModal from './components/LeaderboardModal';
 import ProfileModal from './components/ProfileModal';
-import AdminModal from './components/AdminModal';
 import PhotoGameView from './components/PhotoGameView';
 import BoatGameView from './components/BoatGameView';
 import GameRulesCard from './components/GameRulesCard';

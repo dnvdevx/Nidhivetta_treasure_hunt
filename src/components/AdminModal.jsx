@@ -352,7 +352,6 @@ export default function AdminModal({ isOpen, onClose }) {
           <form onSubmit={handleAdminAuth} className="mt-6 space-y-4 max-w-md mx-auto">
             <p className="text-xs text-white/70">
               Enter Organizer Passcode to access live approvals, review photo game submissions, and feed team rosters.
-              (Dev passcode: <code className="text-gold">thanima-admin-2026</code>)
             </p>
             {error && (
               <div className="rounded-xl border border-red-500/40 bg-red-950/60 p-2.5 text-xs text-red-200">

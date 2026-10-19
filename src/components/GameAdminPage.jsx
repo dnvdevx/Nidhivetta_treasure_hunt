@@ -3,12 +3,12 @@ import { getTeamPhotoTargets } from '../utils/photoTargets';
 
 // Station definitions & themes
 const STATIONS = [
-  { id: 'Hot n Cold', name: 'Hot n Cold', passcode: 'FLAME#82HC', description: 'Football/racket courts colour hunt' },
-  { id: 'Jigsaw', name: 'Jigsaw', passcode: 'PIECE#39JS', description: 'Envelope & puzzle piece decoding' },
-  { id: 'Photo Game', name: 'Photo Game', passcode: 'RELIC#61PG', description: '3 campus locations full photo capture' },
-  { id: 'Movie Game', name: 'Movie Game', passcode: 'CINEMA#82MG', description: 'Ladies hostel milk stall movie trivia' },
-  { id: 'Boat Game', name: 'Boat Game', passcode: 'VALLAM#55BG', description: '5-harbor 20-boat fleet trial' },
-  { id: 'Final Game', name: 'Final Game', passcode: 'MAKUTAM#99FG', description: 'Main stage sprint & Makutam crown' }
+  { id: 'Hot n Cold', name: 'Hot n Cold', description: 'Football/racket courts colour hunt' },
+  { id: 'Jigsaw', name: 'Jigsaw', description: 'Envelope & puzzle piece decoding' },
+  { id: 'Photo Game', name: 'Photo Game', description: '3 campus locations full photo capture' },
+  { id: 'Movie Game', name: 'Movie Game', description: 'Ladies hostel milk stall movie trivia' },
+  { id: 'Boat Game', name: 'Boat Game', description: '5-harbor 20-boat fleet trial' },
+  { id: 'Final Game', name: 'Final Game', description: 'Main stage sprint & Makutam crown' }
 ];
 
 const TEAM_TREE_NUMBERS = {
