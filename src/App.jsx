@@ -384,7 +384,7 @@ export default function App() {
                 key={i}
                 onClick={() => {
                   if (isLastLetter && isMRevealed) {
-                    setPreviewImage('/images/final-clue.jpeg');
+                    setPreviewImage('/images/final-clue.png');
                   }
                 }}
                 className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 font-serif text-base sm:text-lg font-bold transition-all duration-700 overflow-hidden
@@ -423,7 +423,7 @@ export default function App() {
               MYSTERY UNLOCKED: Letter "M" has materialized on your board!
             </p>
             <button
-              onClick={() => setPreviewImage('/images/final-clue.jpeg')}
+              onClick={() => setPreviewImage('/images/final-clue.png')}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-bg bg-gold px-3.5 py-1.5 rounded-xl shadow-md hover:bg-gold/90 transition active:scale-95"
             >
               View Secret "M" Clue Map
@@ -486,7 +486,7 @@ export default function App() {
                 : `Mission ${done + 1} of 7 • Letter "${WORD[done]}"`}
             </span>
             <span className="text-xs font-serif font-bold text-cream/70">
-              {isFinished ? 'VICTORY' : done === 6 ? 'Final Game' : (currentTask?.gameName || '')}
+              {isFinished ? (currentTask?.isFirstPlace ? '1st PLACE' : 'COMPLETE') : done === 6 ? 'Final Game' : (currentTask?.gameName || '')}
             </span>
           </div>
 

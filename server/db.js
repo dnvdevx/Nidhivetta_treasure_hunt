@@ -173,11 +173,12 @@ export function getTeamCurrentTask(team, localStore = null) {
   const schedule = TEAM_GAME_SCHEDULE[team.team_number] || TEAM_GAME_SCHEDULE[1];
 
   if (step >= schedule.length) {
-    const store = localStore || (isSupabaseConfigured ? null : readLocalStore());
+    const store = localStore || readLocalStore();
     const allTeams = store?.teams || [];
     const myCompletedTime = team.completed_at ? new Date(team.completed_at).getTime() : Infinity;
     const isFirstPlace = Boolean(
       team.completed_at &&
+      myCompletedTime < Infinity &&
       !allTeams.some((t) => {
         if (t.id === team.id || !t.completed_at) return false;
         const otherTime = new Date(t.completed_at).getTime();
@@ -502,12 +503,12 @@ export async function completeTeamTask({ teamId, participantId = null, participa
   const isFinished = nextStep >= schedule.length;
   const now = new Date().toISOString();
   const nextPoints = (team.points || 0) + 150;
+  // Immutable completion timestamp: preserve earliest recorded completion time
+  const finalCompletedAt = team.completed_at || (isFinished ? now : null);
 
   team.current_step = nextStep;
   team.points = nextPoints;
-  if (isFinished) {
-    team.completed_at = now;
-  }
+  team.completed_at = finalCompletedAt;
   team.updated_at = now;
 
   if (isSupabaseConfigured) {
@@ -516,7 +517,7 @@ export async function completeTeamTask({ teamId, participantId = null, participa
       .update({
         current_step: nextStep,
         points: nextPoints,
-        completed_at: isFinished ? now : null,
+        completed_at: finalCompletedAt,
         updated_at: now
       })
       .eq('id', team.id);
@@ -538,7 +539,7 @@ export async function completeTeamTask({ teamId, participantId = null, participa
     if (stTeam) {
       stTeam.current_step = nextStep;
       stTeam.points = nextPoints;
-      stTeam.completed_at = isFinished ? now : null;
+      stTeam.completed_at = stTeam.completed_at || finalCompletedAt;
       stTeam.updated_at = now;
       stTeam.marshal_feedback = null;
     }
@@ -559,7 +560,19 @@ export async function completeTeamTask({ teamId, participantId = null, participa
 
   let celebrationMsg = `✨ Splendid! Challenge solved! You unlocked Letter "${unlockedLetter}"!`;
   if (isFinished) {
-    celebrationMsg = '🎉 VICTORY! You conquered the Final Game and assembled all 7 letters of KERALAM!';
+    const store = isSupabaseConfigured ? null : readLocalStore();
+    const allTeams = store?.teams || [];
+    const myTime = new Date(finalCompletedAt).getTime();
+    const isFirst = !allTeams.some((t) => {
+      if (t.id === team.id || !t.completed_at) return false;
+      return new Date(t.completed_at).getTime() < myTime;
+    });
+
+    if (isFirst) {
+      celebrationMsg = '🏆 1st PLACE CHAMPIONS! You conquered the Final Game first and assembled all 7 letters of KERALAM! Claim the Grand Prize at the Main Stage!';
+    } else {
+      celebrationMsg = '✨ KERALAM COMPLETE! You conquered all 7 trials of Nidhiveta and assembled K-E-R-A-L-A-M! Head to the Main Stage for the grand celebration!';
+    }
   } else if (isSixthTaskFinished) {
     celebrationMsg = '🔥 MYSTERY UNLOCKED! You unlocked Letter "A"! The secret 7th letter "M" has now materialized on your board!';
   }
@@ -1157,18 +1170,29 @@ export async function getAllPhotoSubmissions() {
 export async function getLeaderboard() {
   const teams = await getAllTeams();
   const sorted = [...teams].sort((a, b) => {
+    // 1. Any team that has completed the hunt always comes before any team that has not completed
+    const aDone = Boolean(a.completed_at || (a.current_step || 0) >= 7);
+    const bDone = Boolean(b.completed_at || (b.current_step || 0) >= 7);
+
+    if (aDone && bDone) {
+      // Both finished: strictly ordered by earliest completed_at timestamp!
+      const aTime = a.completed_at ? new Date(a.completed_at).getTime() : Infinity;
+      const bTime = b.completed_at ? new Date(b.completed_at).getTime() : Infinity;
+      if (aTime !== bTime) return aTime - bTime;
+      return (a.team_number || 0) - (b.team_number || 0);
+    }
+    if (aDone) return -1;
+    if (bDone) return 1;
+
+    // 2. For teams still playing: higher step first
     if ((b.current_step || 0) !== (a.current_step || 0)) {
       return (b.current_step || 0) - (a.current_step || 0);
     }
-    if (a.completed_at && b.completed_at) {
-      const diff = new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
-      if (diff !== 0) return diff;
-    }
-    if (a.completed_at) return -1;
-    if (b.completed_at) return 1;
+    // 3. Higher points next
     if ((b.points || 0) !== (a.points || 0)) {
       return (b.points || 0) - (a.points || 0);
     }
+    // 4. Earlier updated_at next
     if (a.updated_at && b.updated_at) {
       const diff = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
       if (diff !== 0) return diff;
@@ -1176,13 +1200,15 @@ export async function getLeaderboard() {
     return (a.team_number || 0) - (b.team_number || 0);
   });
 
-  return sorted.map((t) => ({
+  return sorted.map((t, idx) => ({
+    rank: idx + 1,
     id: t.id,
     team_number: t.team_number,
     name: t.name,
-    current_step: t.current_step,
-    points: t.points,
-    completed_at: t.completed_at
+    current_step: t.current_step || 0,
+    points: t.points || 0,
+    completed_at: t.completed_at,
+    isFinished: Boolean(t.completed_at || (t.current_step || 0) >= 7)
   }));
 }
 
@@ -1275,6 +1301,8 @@ export async function advanceTeamToStep(teamId, targetStep) {
   const now = new Date().toISOString();
   const isFinished = targetStep >= 7;
   const nextPoints = targetStep * 150;
+  // Immutable completion timestamp: preserve earliest recorded completion time
+  const finalCompletedAt = team.completed_at || (isFinished ? now : null);
 
   if (isSupabaseConfigured) {
     await supabase
@@ -1282,7 +1310,7 @@ export async function advanceTeamToStep(teamId, targetStep) {
       .update({
         current_step: targetStep,
         points: nextPoints,
-        completed_at: isFinished ? now : null,
+        completed_at: finalCompletedAt,
         updated_at: now
       })
       .eq('id', team.id);
@@ -1292,7 +1320,7 @@ export async function advanceTeamToStep(teamId, targetStep) {
     if (stTeam) {
       stTeam.current_step = targetStep;
       stTeam.points = nextPoints;
-      stTeam.completed_at = isFinished ? now : null;
+      stTeam.completed_at = stTeam.completed_at || finalCompletedAt;
       stTeam.updated_at = now;
       stTeam.marshal_feedback = null;
     }
@@ -1301,7 +1329,7 @@ export async function advanceTeamToStep(teamId, targetStep) {
 
   team.current_step = targetStep;
   team.points = nextPoints;
-  if (isFinished) team.completed_at = now;
+  team.completed_at = finalCompletedAt;
   team.updated_at = now;
   return team;
 }

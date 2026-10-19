@@ -11,15 +11,21 @@ export default function LeaderboardModal({ isOpen, onClose, currentTeamId }) {
       const data = await res.json();
       const sorted = Array.isArray(data)
         ? [...data].sort((a, b) => {
+            const aDone = Boolean(a.completed_at || (a.current_step || 0) >= 7);
+            const bDone = Boolean(b.completed_at || (b.current_step || 0) >= 7);
+
+            if (aDone && bDone) {
+              const aTime = a.completed_at ? new Date(a.completed_at).getTime() : Infinity;
+              const bTime = b.completed_at ? new Date(b.completed_at).getTime() : Infinity;
+              if (aTime !== bTime) return aTime - bTime;
+              return (a.team_number || 0) - (b.team_number || 0);
+            }
+            if (aDone) return -1;
+            if (bDone) return 1;
+
             if ((b.current_step || 0) !== (a.current_step || 0)) {
               return (b.current_step || 0) - (a.current_step || 0);
             }
-            if (a.completed_at && b.completed_at) {
-              const diff = new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
-              if (diff !== 0) return diff;
-            }
-            if (a.completed_at) return -1;
-            if (b.completed_at) return 1;
             if ((b.points || 0) !== (a.points || 0)) {
               return (b.points || 0) - (a.points || 0);
             }
