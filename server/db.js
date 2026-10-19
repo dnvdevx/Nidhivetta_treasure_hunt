@@ -203,6 +203,7 @@ export function getTeamCurrentTask(team, localStore = null) {
     mapUrl: details.mapUrl || 'https://www.google.com/maps/search/?api=1&query=VIT+Chennai',
     points: details.points || 150,
     rules: details.rules || null,
+    clueImage: details.clueImage || null,
     isPhotoGame,
     isBoatGame
   };

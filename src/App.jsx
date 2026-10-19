@@ -35,6 +35,7 @@ export default function App() {
   // Modals
   const [profileOpen, setProfileOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Toast / celebration message
   const [toast, setToast] = useState('');
@@ -197,12 +198,17 @@ export default function App() {
             return (
               <div
                 key={i}
+                onClick={() => {
+                  if (isLastLetter && isMRevealed) {
+                    setPreviewImage('/images/final-clue.jpeg');
+                  }
+                }}
                 className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 font-serif text-base sm:text-lg font-bold transition-all duration-700 overflow-hidden
                   ${
                     isLit
                       ? 'animate-glow border-cream bg-cream text-bg scale-105 shadow-lg'
                       : isLastLetter && isMRevealed
-                      ? 'border-gold bg-gold/20 text-gold animate-pulse scale-105 shadow-md'
+                      ? 'border-gold bg-gold/20 text-gold animate-pulse scale-105 shadow-md cursor-pointer'
                       : isLastLetter
                       ? 'border-gold/50 bg-inset p-0.5 shadow'
                       : 'border-ring bg-card text-cream/70'
@@ -228,8 +234,16 @@ export default function App() {
 
         {/* Secret notice banner if M is revealed */}
         {isMRevealed && !isFinished && (
-          <div className="mt-2.5 rounded-xl border border-gold/40 bg-gold/15 p-2.5 text-center text-xs font-semibold text-gold animate-pulse">
-            MYSTERY UNLOCKED: Letter "M" has materialized on your board! Proceed to the Final Challenge!
+          <div className="mt-2.5 rounded-2xl border border-gold/40 bg-gold/15 p-3 text-center space-y-2 shadow-lg">
+            <p className="text-xs font-semibold text-gold animate-pulse">
+              MYSTERY UNLOCKED: Letter "M" has materialized on your board!
+            </p>
+            <button
+              onClick={() => setPreviewImage('/images/final-clue.jpeg')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-bg bg-gold px-3.5 py-1.5 rounded-xl shadow-md hover:bg-gold/90 transition active:scale-95"
+            >
+              View Secret "M" Clue Map
+            </button>
           </div>
         )}
 
@@ -341,6 +355,44 @@ export default function App() {
                 )}
               </div>
 
+              {/* CLUE IMAGE CARD (e.g. Final Clue Map for letter M) */}
+              {currentTask.clueImage && (
+                <div className="rounded-2xl border-2 border-gold/40 bg-card p-4 space-y-2.5 shadow-lg">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <div>
+                      <h4 className="font-serif text-sm font-bold text-gold">
+                        {currentTask.internalName === 'Final Game' || done === 6
+                          ? 'The Secret "M" Clue Map'
+                          : 'Challenge Clue Image'}
+                      </h4>
+                      <p className="text-[10px] text-white/60">Study the highlighted campus zone</p>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gold/15 text-gold border border-gold/30">
+                      Tap to Zoom
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => setPreviewImage(currentTask.clueImage)}
+                    className="relative group cursor-pointer overflow-hidden rounded-xl border border-gold/30 bg-black/40 shadow-md hover:border-gold transition"
+                  >
+                    <img
+                      src={currentTask.clueImage}
+                      alt="Clue Map"
+                      className="w-full max-h-72 object-contain bg-black/20 mx-auto transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2.5 flex items-center justify-between pointer-events-none">
+                      <span className="text-[10px] text-gold font-medium bg-black/70 px-2 py-0.5 rounded-full border border-gold/30">
+                        Red Box = Target Zone
+                      </span>
+                      <span className="text-[10px] text-white/90 bg-black/70 px-2 py-0.5 rounded-full border border-white/20">
+                        Tap for full screen
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* RULES & REGULATIONS OF THIS GAME */}
               {currentTask.rules && (
                 <GameRulesCard
@@ -447,6 +499,31 @@ export default function App() {
         member={member}
         onLogout={handleLogout}
       />
+
+      {/* Full image preview popup for Clue Map / Clue Images */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
+        >
+          <div className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewImage}
+              alt="Clue Preview"
+              className="rounded-2xl max-h-[85vh] w-full object-contain mx-auto shadow-2xl border border-white/10"
+            />
+            <button
+              onClick={() => setPreviewImage(null)}
+              aria-label="Close"
+              className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-card border border-gold text-gold flex items-center justify-center shadow hover:bg-gold hover:text-bg transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
