@@ -14,17 +14,17 @@ export const GAME_STATION_PASSCODES = {
     alias: ['Hot & Cold', 'Hot n Cold']
   },
   'Numbers on Trees': {
-    gameId: 'Numbers on Trees',
+    gameId: 'Jigsaw',
     passcode: 'PIECE#39JS',
-    displayName: 'Numbers on Trees',
-    icon: '🌳',
+    displayName: 'Jigsaw',
+    icon: '🧩',
     alias: ['Numbers on Trees', 'Jigsaw']
   },
   'Jigsaw': {
-    gameId: 'Numbers on Trees',
+    gameId: 'Jigsaw',
     passcode: 'PIECE#39JS',
-    displayName: 'Numbers on Trees',
-    icon: '🌳',
+    displayName: 'Jigsaw',
+    icon: '🧩',
     alias: ['Numbers on Trees', 'Jigsaw']
   },
   'Photo Game': {

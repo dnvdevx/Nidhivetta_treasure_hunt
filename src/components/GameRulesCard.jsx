@@ -27,9 +27,6 @@ export default function GameRulesCard({ rules, gameName }) {
               <h4 className="font-serif text-sm font-bold text-gold tracking-wide">
                 Rules & Regulations
               </h4>
-              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30">
-                Official
-              </span>
             </div>
             <p className="text-[11px] text-white/60">
               {rules.title || 'Station Instructions'} • {rules.items.length} Rules

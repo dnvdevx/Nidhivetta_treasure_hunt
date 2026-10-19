@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 // Station definitions & themes
 const STATIONS = [
   { id: 'Hot n Cold', name: 'Hot n Cold', icon: '🔥', passcode: 'FLAME#82HC', description: 'Football/racket courts colour hunt' },
-  { id: 'Numbers on Trees', name: 'Numbers on Trees', icon: '🌳', passcode: 'PIECE#39JS', description: 'Malayalam letter tree number decoding' },
+  { id: 'Jigsaw', name: 'Jigsaw', icon: '🧩', passcode: 'PIECE#39JS', description: 'Envelope & puzzle piece decoding' },
   { id: 'Photo Game', name: 'Photo Game', icon: '📸', passcode: 'RELIC#61PG', description: '3 campus locations full photo capture' },
   { id: 'Movie Game', name: 'Movie Game', icon: '🎬', passcode: 'CINEMA#82MG', description: 'Ladies hostel milk stall movie trivia' },
   { id: 'Boat Game', name: 'Boat Game', icon: '🛶', passcode: 'VALLAM#55BG', description: '5-harbor 20-boat fleet trial' },
@@ -651,7 +651,7 @@ export default function GameAdminPage() {
                       </p>
                     </div>
 
-                    {/* Numbers on Trees Inscription & Answer Reference for Coordinators */}
+                    {/* Jigsaw Envelope & Answer Reference for Coordinators */}
                     {normalizeGameName(activeStation) === 'numbersontrees' && TEAM_TREE_NUMBERS[team.team_number] && (
                       <div className="rounded-2xl border border-gold/40 bg-inset p-3 space-y-1 shadow-inner">
                         <div className="flex items-center justify-between text-xs">
@@ -661,7 +661,7 @@ export default function GameAdminPage() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
-                          <span className="text-white/60 font-medium">Correct Tree Number:</span>
+                          <span className="text-white/60 font-medium">Envelope Number:</span>
                           <span className="font-mono font-black text-emerald-400 text-base">
                             #{TEAM_TREE_NUMBERS[team.team_number].number}
                           </span>

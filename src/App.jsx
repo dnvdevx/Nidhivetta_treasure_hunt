@@ -351,17 +351,17 @@ export default function App() {
                 />
               )}
 
-              {/* NUMBERS ON TREES MALAYALAM RIDDLE CARD */}
+              {/* JIGSAW MALAYALAM RIDDLE CARD */}
               {(currentTask.isNumbersOnTrees || currentTask.treeRiddle) && (
                 <div className="rounded-2xl border-2 border-gold/40 bg-gradient-to-b from-card to-inset p-4 space-y-3 shadow-lg">
                   <div className="flex items-center justify-between border-b border-white/10 pb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">🌳</span>
+                      <span className="text-xl">🧩</span>
                       <div>
                         <h4 className="font-serif text-sm font-bold text-gold">
-                          Malayalam Tree Inscription Riddle
+                          Malayalam Puzzle Clue
                         </h4>
-                        <p className="text-[10px] text-white/60">Find the tree bearing your team's letter</p>
+                        <p className="text-[10px] text-white/60">Find the envelope bearing your decoded number</p>
                       </div>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gold/15 text-gold border border-gold/30">
