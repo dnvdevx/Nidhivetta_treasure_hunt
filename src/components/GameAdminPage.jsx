@@ -76,6 +76,16 @@ const normalizeGameName = (name) => {
   return n;
 };
 
+// Station Access Codes (Matching organizers' official codes)
+const STATION_ACCESS_MAP = {
+  'hotncold': 'FLAME#82HC',
+  'numbersontrees': 'PIECE#39JS',
+  'photogame': 'RELIC#61PG',
+  'moviegame': 'CINEMA#82MG',
+  'boatgame': 'VALLAM#55BG',
+  'finalgame': 'MAKUTAM#99FG'
+};
+
 const matchesStation = (currentGame, stationId) => {
   return normalizeGameName(currentGame) === normalizeGameName(stationId);
 };
@@ -87,10 +97,48 @@ export default function GameAdminPage() {
   const [error, setError] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Unlocked stations for master admin in current session (stored in sessionStorage)
+  const [unlockedStations, setUnlockedStations] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('thanima_unlocked_stations');
+      return saved ? JSON.parse(saved) : {};
+    } catch (_) {
+      return {};
+    }
+  });
+
+  // Modal challenge state when master clicks a protected station
+  const [stationToUnlock, setStationToUnlock] = useState(null);
+  const [stationAccessCodeInput, setStationAccessCodeInput] = useState('');
+  const [stationUnlockError, setStationUnlockError] = useState('');
+  const [isUnlocking, setIsUnlocking] = useState(false);
+
   // Master view active tab: 'stations' | 'teams' | 'boat_fleet' | 'settings'
   const [masterTab, setMasterTab] = useState('stations');
   // Volunteer station being inspected (if master, can switch between any; if volunteer, fixed to their game)
   const [activeStation, setActiveStation] = useState(null);
+
+  // Unlock / Lock helpers
+  const unlockStation = (stationName) => {
+    setUnlockedStations((prev) => {
+      const updated = { ...prev, [stationName]: true };
+      try {
+        sessionStorage.setItem('thanima_unlocked_stations', JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
+  };
+
+  const lockStation = (stationName) => {
+    setUnlockedStations((prev) => {
+      const updated = { ...prev };
+      delete updated[stationName];
+      try {
+        sessionStorage.setItem('thanima_unlocked_stations', JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
+  };
 
   // Live Data
   const [teams, setTeams] = useState([]);
@@ -138,6 +186,7 @@ export default function GameAdminPage() {
 
       if (data.role === 'volunteer') {
         setActiveStation(data.gameName);
+        unlockStation(data.gameName);
       } else {
         setActiveStation(null); // Master starts on station overview
       }
@@ -147,6 +196,79 @@ export default function GameAdminPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Verify Station Access Code when master enters a game section
+  const handleVerifyStationAccessCode = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const inputCode = stationAccessCodeInput.trim().toUpperCase();
+    if (!inputCode) {
+      setStationUnlockError('Please enter the station access code.');
+      return;
+    }
+
+    if (!stationToUnlock) return;
+
+    setIsUnlocking(true);
+    setStationUnlockError('');
+
+    try {
+      const targetNorm = normalizeGameName(stationToUnlock.name);
+      const expectedCode = STATION_ACCESS_MAP[targetNorm];
+
+      // Check if this access code belongs to a different station
+      const otherStationKey = Object.keys(STATION_ACCESS_MAP).find(
+        (key) => key !== targetNorm && STATION_ACCESS_MAP[key] === inputCode
+      );
+
+      if (otherStationKey) {
+        setStationUnlockError(`This access code belongs to a different game station. Please enter the access code for ${stationToUnlock.name}.`);
+        setIsUnlocking(false);
+        return;
+      }
+
+      // 1. Direct validation against expected station code
+      if (expectedCode && inputCode === expectedCode) {
+        unlockStation(stationToUnlock.name);
+        setActiveStation(stationToUnlock.name);
+        setStationToUnlock(null);
+        setStationAccessCodeInput('');
+        setStationUnlockError('');
+        showActionToast(`Access verified for ${stationToUnlock.name}!`);
+        setIsUnlocking(false);
+        return;
+      }
+
+      // 2. Server verification via /api/admin/login
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: inputCode })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        if (
+          matchesStation(data.gameName, stationToUnlock.name) ||
+          matchesStation(data.displayName, stationToUnlock.name)
+        ) {
+          unlockStation(stationToUnlock.name);
+          setActiveStation(stationToUnlock.name);
+          setStationToUnlock(null);
+          setStationAccessCodeInput('');
+          setStationUnlockError('');
+          showActionToast(`Access verified for ${stationToUnlock.name}!`);
+        } else {
+          setStationUnlockError(`This access code is for ${data.displayName || data.gameName}. Please enter the code for ${stationToUnlock.name}.`);
+        }
+      } else {
+        setStationUnlockError(data.error || 'Invalid station access code. Please try again.');
+      }
+    } catch (err) {
+      setStationUnlockError(err.message || 'Verification error. Please try again.');
+    } finally {
+      setIsUnlocking(false);
     }
   };
 
@@ -299,9 +421,14 @@ export default function GameAdminPage() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('thanima_admin_pass');
+    sessionStorage.removeItem('thanima_unlocked_stations');
     setSession(null);
     setPasscode('');
     setActiveStation(null);
+    setUnlockedStations({});
+    setStationToUnlock(null);
+    setStationAccessCodeInput('');
+    setStationUnlockError('');
   };
 
   // ==========================================
@@ -366,7 +493,7 @@ export default function GameAdminPage() {
             <div className="flex items-start gap-2">
               <span className="font-bold text-gold">•</span>
               <p>
-                <strong>Master Organizers:</strong> Common password unlocks all 6 stations, live standings, boat fleet & tools.
+                <strong>Master Organizers:</strong> Common password unlocks master dashboard; each game station requires its station access code to enter.
               </p>
             </div>
           </div>
@@ -397,14 +524,27 @@ export default function GameAdminPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* If master is inside a station view, allow going back to stations grid */}
+            {/* If master is inside a station view, allow going back or locking station */}
             {session.isMaster && activeStation && (
-              <button
-                onClick={() => setActiveStation(null)}
-                className="rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition active:scale-95"
-              >
-                ← All Stations
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setActiveStation(null)}
+                  className="rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/20 transition active:scale-95"
+                >
+                  ← All Stations
+                </button>
+                <button
+                  onClick={() => {
+                    lockStation(activeStation);
+                    setActiveStation(null);
+                  }}
+                  className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition active:scale-95 flex items-center gap-1"
+                  title="Lock station and exit"
+                >
+                  <span>🔒</span>
+                  <span className="hidden sm:inline">Lock Station</span>
+                </button>
+              </div>
             )}
 
             <button
@@ -774,15 +914,32 @@ export default function GameAdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {STATIONS.map((st) => {
                     const count = teams.filter((t) => matchesStation(t.currentGame, st.id)).length;
+                    const isUnlocked = Boolean(unlockedStations[st.name]);
 
                     return (
                       <div
                         key={st.id}
-                        className="rounded-3xl border border-gold/30 bg-card p-5 space-y-4 shadow-xl hover:border-gold transition flex flex-col justify-between"
+                        className={`rounded-3xl border p-5 space-y-4 shadow-xl transition flex flex-col justify-between ${
+                          isUnlocked
+                            ? 'border-emerald-500/40 bg-card hover:border-emerald-500/70'
+                            : 'border-gold/30 bg-card hover:border-gold/60'
+                        }`}
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-wider text-gold/80">Station</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold uppercase tracking-wider text-gold/80">Station</span>
+                              {isUnlocked ? (
+                                <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
+                                  ✓ Unlocked
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold flex items-center gap-1">
+                                  <span>🔒</span>
+                                  <span>Code Required</span>
+                                </span>
+                              )}
+                            </div>
                             <span
                               className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                                 count > 0
@@ -801,13 +958,37 @@ export default function GameAdminPage() {
                         </div>
 
                         <div className="pt-3 border-t border-white/10">
-                          <button
-                            onClick={() => setActiveStation(st.name)}
-                            className="w-full rounded-xl bg-gold py-2.5 text-xs font-bold text-bg hover:bg-gold/90 active:scale-95 transition shadow-md flex items-center justify-center gap-1.5"
-                          >
-                            <span>Open Station Desk</span>
-                            <span>➔</span>
-                          </button>
+                          {isUnlocked ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setActiveStation(st.name)}
+                                className="flex-1 rounded-xl bg-gold py-2.5 text-xs font-bold text-bg hover:bg-gold/90 active:scale-95 transition shadow-md flex items-center justify-center gap-1.5"
+                              >
+                                <span>Open Station Desk</span>
+                                <span>➔</span>
+                              </button>
+                              <button
+                                onClick={() => lockStation(st.name)}
+                                title="Lock station access"
+                                className="rounded-xl border border-white/20 bg-inset px-3 py-2.5 text-xs font-bold text-white/60 hover:text-white hover:border-amber-400/50 transition active:scale-95 flex items-center gap-1"
+                              >
+                                <span>🔒</span>
+                                <span className="hidden sm:inline">Lock</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setStationToUnlock(st);
+                                setStationAccessCodeInput('');
+                                setStationUnlockError('');
+                              }}
+                              className="w-full rounded-xl bg-gold/15 border border-gold/40 py-2.5 text-xs font-bold text-gold hover:bg-gold hover:text-bg active:scale-95 transition shadow-md flex items-center justify-center gap-1.5"
+                            >
+                              <span>🔒 Enter Access Code</span>
+                              <span>➔</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -1105,6 +1286,83 @@ export default function GameAdminPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Station Access Code Gate Modal */}
+      {stationToUnlock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl border border-gold/40 bg-card p-6 shadow-2xl space-y-4 relative">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-gold tracking-wider block">
+                  Station Verification Required
+                </span>
+                <h3 className="font-serif text-xl font-bold text-white mt-0.5">
+                  {stationToUnlock.name}
+                </h3>
+                <p className="text-xs text-white/60 mt-1">
+                  Enter the private station access code to access and coordinate this game desk.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setStationToUnlock(null);
+                  setStationUnlockError('');
+                  setStationAccessCodeInput('');
+                }}
+                className="text-white/40 hover:text-white p-1 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifyStationAccessCode} className="space-y-4 pt-2">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-1.5">
+                  Station Access Code
+                </label>
+                <input
+                  type="password"
+                  autoFocus
+                  value={stationAccessCodeInput}
+                  onChange={(e) => {
+                    setStationAccessCodeInput(e.target.value);
+                    setStationUnlockError('');
+                  }}
+                  placeholder="Enter station access code"
+                  className="w-full rounded-2xl border border-gold/40 bg-inset px-4 py-3 text-sm text-white placeholder-white/30 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold font-mono tracking-widest text-center uppercase"
+                />
+              </div>
+
+              {stationUnlockError && (
+                <div className="rounded-xl border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300 font-medium">
+                  {stationUnlockError}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStationToUnlock(null);
+                    setStationUnlockError('');
+                    setStationAccessCodeInput('');
+                  }}
+                  className="w-1/2 rounded-xl border border-white/20 bg-inset py-2.5 text-xs font-semibold text-white/70 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUnlocking}
+                  className="w-1/2 rounded-xl bg-gold py-2.5 text-xs font-bold text-bg hover:bg-gold/90 transition shadow-md disabled:opacity-50"
+                >
+                  {isUnlocking ? 'Verifying...' : 'Unlock & Enter'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
