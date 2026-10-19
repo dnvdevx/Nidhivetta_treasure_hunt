@@ -392,9 +392,9 @@ export const BOAT_GAME_QUESTIONS = [
     teamNumber: 6,
     questionBoatNumber: 6,
     questionCode: 'G3Z7F2',
-    question: 'A phone call meant for one person reaches the wrong hands. What follows is a kidnapping plan filled with confusion and comedy. Which classic Malayalam film am I?',
+    question: 'Four symbols in the Malayalam script conceal my identity. Decode them carefully and discover who I am!\n൨൩൦൭ — Can you guess who I am?',
     answerBoatNumber: 16,
-    answer: 'Ramji Rao Speaking (1989)',
+    answer: '2307',
     answerCode: 'H6F1Y8',
     code: 'H6F1Y8'
   },

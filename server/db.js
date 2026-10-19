@@ -44,7 +44,7 @@ function initInitialStore() {
     photoSubmissions: [],
     boatQuestions: JSON.parse(JSON.stringify(BOAT_GAME_QUESTIONS)),
     startingStations: JSON.parse(JSON.stringify(STARTING_STATIONS)),
-    version: 9
+    version: 10
   };
   try {
     fs.mkdirSync(path.dirname(LOCAL_STORE_FILE), { recursive: true });
@@ -90,10 +90,10 @@ function readLocalStore() {
       parsed.startingStations = JSON.parse(JSON.stringify(STARTING_STATIONS));
       modified = true;
     }
-    if (parsed.version !== 9) {
+    if (parsed.version !== 10) {
       parsed.boatQuestions = JSON.parse(JSON.stringify(BOAT_GAME_QUESTIONS));
       parsed.teams = JSON.parse(JSON.stringify(INITIAL_10_TEAMS));
-      parsed.version = 9;
+      parsed.version = 10;
       modified = true;
     }
     if (modified) {
