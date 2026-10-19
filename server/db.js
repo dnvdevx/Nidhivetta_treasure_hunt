@@ -1012,6 +1012,7 @@ export async function resetTeam(teamId) {
     team.photo_skips_used = 0;
     team.boat_question_unlocked = false;
     team.claimed_boat_question = null;
+    team.approved_photo_targets = [];
     store.scans = store.scans.filter((s) => s.team_id !== teamId);
     store.photoSubmissions = (store.photoSubmissions || []).filter((s) => s.team_id !== teamId);
     writeLocalStore(store);
