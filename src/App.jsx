@@ -258,6 +258,9 @@ export default function App() {
         sessionStorage.removeItem(`thanima_photo_upload_${i}`);
       } catch (_) {}
     }
+    localStorage.removeItem('thanima_boat_claimed_num');
+    localStorage.removeItem('thanima_boat_question_text');
+    localStorage.removeItem('thanima_boat_question_code');
     setToken(null);
     setTeam(null);
     setMember(null);

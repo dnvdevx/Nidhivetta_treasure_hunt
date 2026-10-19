@@ -287,7 +287,7 @@ app.post('/api/boat-game/unlock-question', authenticateToken, async (req, res) =
 // 8b. BOAT GAME: Step 2 - Verify 6-character alphanumeric answer boat code
 app.post('/api/boat-game/verify', authenticateToken, async (req, res) => {
   try {
-    const { code } = req.body;
+    const { code, claimedBoatNumber, questionCode } = req.body;
     if (!code) {
       return res.status(400).json({ error: 'Boat answer code is required.' });
     }
@@ -295,6 +295,8 @@ app.post('/api/boat-game/verify', authenticateToken, async (req, res) => {
     const result = await verifyBoatCode({
       teamId: req.user.teamId,
       code,
+      claimedBoatNumber,
+      questionCode,
       participantName: req.user.memberName,
       participantId: req.user.memberId
     });

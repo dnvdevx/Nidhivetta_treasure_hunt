@@ -37,9 +37,31 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
   const boatQuestion = task?.boatQuestion || {};
   const isInitiallyUnlocked = Boolean(boatQuestion.isQuestionUnlocked);
 
-  const [questionUnlocked, setQuestionUnlocked] = useState(isInitiallyUnlocked);
-  const [unlockedQuestionText, setUnlockedQuestionText] = useState(boatQuestion.question || '');
-  const [claimedBoatNum, setClaimedBoatNum] = useState(boatQuestion.questionBoatNumber || null);
+  const [questionUnlocked, setQuestionUnlocked] = useState(() => {
+    if (isInitiallyUnlocked) return true;
+    try {
+      return Boolean(localStorage.getItem('thanima_boat_claimed_num'));
+    } catch (_) {
+      return false;
+    }
+  });
+  const [unlockedQuestionText, setUnlockedQuestionText] = useState(() => {
+    if (boatQuestion.question) return boatQuestion.question;
+    try {
+      return localStorage.getItem('thanima_boat_question_text') || '';
+    } catch (_) {
+      return '';
+    }
+  });
+  const [claimedBoatNum, setClaimedBoatNum] = useState(() => {
+    if (boatQuestion.questionBoatNumber) return boatQuestion.questionBoatNumber;
+    try {
+      const saved = localStorage.getItem('thanima_boat_claimed_num');
+      return saved ? Number(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
   const [questionCodeInput, setQuestionCodeInput] = useState('');
   const [answerCodeInput, setAnswerCodeInput] = useState('');
   const [activeLocTab, setActiveLocTab] = useState(1);
@@ -60,11 +82,19 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
     if (task?.boatQuestion) {
       if (task.boatQuestion.isQuestionUnlocked) {
         setQuestionUnlocked(true);
-        if (task.boatQuestion.question) {
-          setUnlockedQuestionText(task.boatQuestion.question);
+        const qText = task.boatQuestion.question;
+        const qNum = task.boatQuestion.questionBoatNumber;
+        const qCode = task.boatQuestion.questionCode;
+        if (qText) {
+          setUnlockedQuestionText(qText);
+          try { localStorage.setItem('thanima_boat_question_text', qText); } catch (_) {}
         }
-        if (task.boatQuestion.questionBoatNumber) {
-          setClaimedBoatNum(task.boatQuestion.questionBoatNumber);
+        if (qNum) {
+          setClaimedBoatNum(qNum);
+          try { localStorage.setItem('thanima_boat_claimed_num', String(qNum)); } catch (_) {}
+        }
+        if (qCode) {
+          try { localStorage.setItem('thanima_boat_question_code', qCode); } catch (_) {}
         }
       }
     }
@@ -101,8 +131,19 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
 
       setQuestionUnlocked(true);
       const qNum = data.boatQuestion?.questionBoatNumber;
-      if (qNum) setClaimedBoatNum(qNum);
-      setUnlockedQuestionText(data.question || data.boatQuestion?.question || '');
+      const qText = data.question || data.boatQuestion?.question || '';
+      const qCode = data.boatQuestion?.questionCode || clean;
+      if (qNum) {
+        setClaimedBoatNum(qNum);
+        try { localStorage.setItem('thanima_boat_claimed_num', String(qNum)); } catch (_) {}
+      }
+      if (qText) {
+        setUnlockedQuestionText(qText);
+        try { localStorage.setItem('thanima_boat_question_text', qText); } catch (_) {}
+      }
+      if (qCode) {
+        try { localStorage.setItem('thanima_boat_question_code', qCode); } catch (_) {}
+      }
       setSuccessMsg(data.message || 'Question Unlocked! Now find the boat displaying the correct answer.');
       if (onSyncState) onSyncState();
     } catch (err) {
@@ -127,19 +168,32 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('thanima_token');
+      const savedNum = localStorage.getItem('thanima_boat_claimed_num');
+      const savedCode = localStorage.getItem('thanima_boat_question_code');
+
       const res = await fetch('/api/boat-game/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ code: clean })
+        body: JSON.stringify({
+          code: clean,
+          claimedBoatNumber: claimedBoatNum || (savedNum ? Number(savedNum) : undefined),
+          questionCode: boatQuestion.questionCode || savedCode || undefined
+        })
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Answer verification failed.');
       }
+
+      try {
+        localStorage.removeItem('thanima_boat_claimed_num');
+        localStorage.removeItem('thanima_boat_question_text');
+        localStorage.removeItem('thanima_boat_question_code');
+      } catch (_) {}
 
       setSuccessMsg(data.message || 'Splendid victory! Correct vessel discovered!');
       if (onTaskCompleted) {

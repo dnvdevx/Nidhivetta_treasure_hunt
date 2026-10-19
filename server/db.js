@@ -714,7 +714,14 @@ export async function unlockBoatQuestion({ teamId, questionCode }) {
 }
 
 // BOAT GAME: Step 2 - Verify 6-character alphanumeric answer boat code against claimed question
-export async function verifyBoatCode({ teamId, code, participantName = 'Teammate', participantId = null }) {
+export async function verifyBoatCode({
+  teamId,
+  code,
+  claimedBoatNumber = null,
+  questionCode = null,
+  participantName = 'Teammate',
+  participantId = null
+}) {
   const team = await getTeamById(teamId);
   if (!team) throw new Error('Team not found');
 
@@ -729,25 +736,88 @@ export async function verifyBoatCode({ teamId, code, participantName = 'Teammate
     throw new Error('Your team is not currently on the Boat Challenge.');
   }
 
-  if (!team.claimed_boat_question || !team.boat_question_unlocked) {
-    return {
-      error: 'Please claim an available Question Boat first by entering its 6-character code.'
-    };
-  }
-
   const store = isSupabaseConfigured ? null : readLocalStore();
   const questions = store?.boatQuestions || BOAT_GAME_QUESTIONS;
-  const claimedQ = questions.find((q) => q.questionBoatNumber === team.claimed_boat_question);
 
-  if (!claimedQ) {
-    return {
-      error: 'Question data not found. Please re-enter your Question Boat code.'
-    };
+  // Determine claimed question: check team record, or claimedBoatNumber from request, or lookup by questionCode
+  let claimedBoatNum = team.claimed_boat_question || claimedBoatNumber;
+  if (!claimedBoatNum && questionCode) {
+    const qByCode = questions.find((q) => (q.questionCode || '').toUpperCase() === String(questionCode).trim().toUpperCase());
+    if (qByCode) claimedBoatNum = qByCode.questionBoatNumber;
   }
 
-  const validAnswerCode = (claimedQ.answerCode || claimedQ.code || '').toUpperCase();
+  // Check if what they typed matches ANY Answer Boat code in the fleet
+  const matchingAnswerBoat = questions.find((q) => (q.answerCode || q.code || '').toUpperCase() === clean);
 
-  if (clean === validAnswerCode) {
+  // If the team has a known claimed question boat:
+  if (claimedBoatNum) {
+    const claimedQ = questions.find((q) => q.questionBoatNumber === Number(claimedBoatNum));
+    if (claimedQ) {
+      const validAnswerCode = (claimedQ.answerCode || claimedQ.code || '').toUpperCase();
+
+      // SUCCESS: The entered code matches the claimed question's answer boat!
+      if (clean === validAnswerCode) {
+        team.claimed_boat_question = claimedQ.questionBoatNumber;
+        team.boat_question_unlocked = true;
+        if (store) {
+          const stTeam = store.teams.find((t) => t.id === teamId);
+          if (stTeam) {
+            stTeam.claimed_boat_question = claimedQ.questionBoatNumber;
+            stTeam.boat_question_unlocked = true;
+          }
+          writeLocalStore(store);
+        }
+        return completeTeamTask({
+          teamId,
+          participantId,
+          participantName,
+          method: 'BOAT_GAME_CODE',
+          scannedCode: clean
+        });
+      }
+
+      // ERROR CASE 1: Re-entered their own question boat code
+      if (clean === (claimedQ.questionCode || '').toUpperCase()) {
+        return {
+          error: 'You entered the Question Boat code again! Search the fleet for the vessel displaying the ANSWER to your question.'
+        };
+      }
+
+      // ERROR CASE 2: Entered another question boat's code
+      const anyQuestionBoat = questions.find((q) => (q.questionCode || '').toUpperCase() === clean);
+      if (anyQuestionBoat) {
+        return {
+          error: `That is the code for Question Boat #${anyQuestionBoat.questionBoatNumber}! You must search for the vessel displaying the ANSWER to your question.`
+        };
+      }
+
+      // ERROR CASE 3: Entered an answer boat for a DIFFERENT question
+      if (matchingAnswerBoat) {
+        return {
+          error: `Incorrect answer vessel! That vessel displays the answer to a different question. Find the vessel answering your Question Boat #${claimedQ.questionBoatNumber}.`
+        };
+      }
+
+      // ERROR CASE 4: The code doesn't exist anywhere
+      return {
+        error: 'Incorrect answer code! Search the boats across the campus harbors for the vessel displaying your correct answer.'
+      };
+    }
+  }
+
+  // If team has NO claimed boat in memory (e.g. cold lambda / direct submission):
+  // Check if what they typed IS a valid answer boat code for ANY question!
+  if (matchingAnswerBoat) {
+    team.claimed_boat_question = matchingAnswerBoat.questionBoatNumber;
+    team.boat_question_unlocked = true;
+    if (store) {
+      const stTeam = store.teams.find((t) => t.id === teamId);
+      if (stTeam) {
+        stTeam.claimed_boat_question = matchingAnswerBoat.questionBoatNumber;
+        stTeam.boat_question_unlocked = true;
+      }
+      writeLocalStore(store);
+    }
     return completeTeamTask({
       teamId,
       participantId,
@@ -757,23 +827,17 @@ export async function verifyBoatCode({ teamId, code, participantName = 'Teammate
     });
   }
 
-  // Check if code matches another boat's answer
-  const otherAnswerBoat = questions.find((q) => (q.answerCode || q.code || '').toUpperCase() === clean);
-  if (otherAnswerBoat) {
+  // Check if they typed a question boat code
+  const anyQuestionBoat = questions.find((q) => (q.questionCode || '').toUpperCase() === clean);
+  if (anyQuestionBoat) {
     return {
-      error: `That boat displays a different answer! Search the fleet for the boat displaying the correct answer to YOUR claimed question (Question Boat #${claimedQ.questionBoatNumber}).`
+      error: `That is the code for Question Boat #${anyQuestionBoat.questionBoatNumber}! Please unlock this question boat in Step 1 first, or find its matching answer vessel.`
     };
   }
 
-  // Check if they re-entered the question code
-  if (clean === (claimedQ.questionCode || '').toUpperCase()) {
-    return {
-      error: 'You entered the Question Boat code again! Now find the boat displaying the ANSWER to your question.'
-    };
-  }
-
+  // Otherwise, wrong answer code
   return {
-    error: 'Invalid 6-character boat answer code. Search the boats near the waterside for your correct answer.'
+    error: 'Incorrect answer code! Search the boats across the campus harbors for the vessel displaying your correct answer.'
   };
 }
 
