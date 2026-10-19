@@ -26,6 +26,7 @@ import {
   getStartingStations,
   updateStartingStation,
   denyTeamTask,
+  advanceTeamToStep,
   isSupabaseConfigured
 } from './db.js';
 import {
@@ -163,6 +164,30 @@ app.get('/api/teams/me', authenticateToken, async (req, res) => {
       currentTask,
       revealedM: (team.current_step || 0) >= 6
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4b. Sync / restore team progress from verified client (heals ephemeral serverless instances)
+app.post('/api/teams/sync-progress', authenticateToken, async (req, res) => {
+  try {
+    const { step } = req.body;
+    if (typeof step !== 'number' || step < 0 || step > 7) {
+      return res.status(400).json({ error: 'Valid step number required' });
+    }
+
+    const team = await getTeamById(req.user.teamId);
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+
+    if (step > (team.current_step || 0)) {
+      await advanceTeamToStep(team.id, step);
+    }
+
+    const updated = await getTeamById(req.user.teamId);
+    const currentTask = getTeamCurrentTask(updated);
+
+    res.json({ success: true, team: updated, currentTask });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -14,9 +14,17 @@ const WORD = ['K', 'E', 'R', 'A', 'L', 'A', 'M'];
 const POINTS_PER_TASK = 150;
 
 // Lightweight offline serializer: strips heavy base64 images so localStorage stays tiny (<3KB)
-// and never triggers QuotaExceededError or browser low memory warnings
+// and tracks monotonic highest step so progress NEVER resets backwards
 function saveToOfflineCache(team, member, currentTask) {
+  if (!team) return;
   try {
+    const rawStep = typeof team.current_step === 'number' ? team.current_step : 0;
+    const prevHighest = parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0;
+    const newHighest = Math.max(rawStep, prevHighest);
+
+    // Lock the highest step ever reached into localStorage
+    localStorage.setItem('thanima_highest_step', String(newHighest));
+
     let cleanTask = currentTask;
     if (currentTask && currentTask.photoGameState) {
       cleanTask = {
@@ -30,14 +38,28 @@ function saveToOfflineCache(team, member, currentTask) {
         }
       };
     }
+
+    const secureTeam = {
+      ...team,
+      current_step: newHighest
+    };
+
     localStorage.setItem(
       'thanima_cached_state',
       JSON.stringify({
-        team,
+        team: secureTeam,
         member,
-        currentTask: cleanTask
+        currentTask: cleanTask,
+        updatedAt: Date.now()
       })
     );
+
+    // Save backup per-step task clue so any reached step can be recovered
+    if (cleanTask && typeof rawStep === 'number') {
+      try {
+        localStorage.setItem(`thanima_step_task_${rawStep}`, JSON.stringify(cleanTask));
+      } catch (_) {}
+    }
   } catch (err) {
     console.warn('Could not write to localStorage cache:', err);
   }
@@ -57,11 +79,24 @@ export default function App() {
 
   const [token, setToken] = useState(() => localStorage.getItem('thanima_token'));
 
-  // Load last saved offline state from localStorage so network drops never reset points or clues
+  // Load last saved offline state from localStorage so network drops never reset progress or clues
   const [cachedState] = useState(() => {
     try {
       const raw = localStorage.getItem('thanima_cached_state');
-      return raw ? JSON.parse(raw) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed?.team) {
+        const highest = parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0;
+        if (highest > (parsed.team.current_step || 0)) {
+          parsed.team.current_step = highest;
+          const taskBackup = localStorage.getItem(`thanima_step_task_${highest}`);
+          if (taskBackup) {
+            try {
+              parsed.currentTask = JSON.parse(taskBackup);
+            } catch (_) {}
+          }
+        }
+      }
+      return parsed;
     } catch (_) {
       return null;
     }
@@ -116,33 +151,68 @@ export default function App() {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
 
-      // Only true 401/403 authorization failures should clear session
+      // DO NOT aggressively wipe session on network drop or transient errors
       if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('thanima_token');
-        localStorage.removeItem('thanima_cached_state');
-        setToken(null);
-        setTeam(null);
-        setMember(null);
-        setCurrentTask(null);
+        const hasCachedTeam = Boolean(localStorage.getItem('thanima_cached_state'));
+        if (!hasCachedTeam) {
+          localStorage.removeItem('thanima_token');
+          localStorage.removeItem('thanima_highest_step');
+          setToken(null);
+          setTeam(null);
+          setMember(null);
+          setCurrentTask(null);
+        } else {
+          setIsOffline(true);
+        }
         return;
       }
 
-      // If server returned a temporary non-ok error (e.g. 500, 502), preserve cached data
       if (!res.ok) {
         setIsOffline(true);
         return;
       }
 
       const data = await res.json();
-      setTeam(data.team);
-      setMember(data.member);
-      setCurrentTask(data.currentTask);
-      setIsOffline(false);
+      if (!data || !data.team) return;
 
-      // Persist to lightweight offline cache
-      saveToOfflineCache(data.team, data.member, data.currentTask);
+      const serverStep = typeof data.team.current_step === 'number' ? data.team.current_step : 0;
+      const localHighest = Math.max(
+        parseInt(localStorage.getItem('thanima_highest_step') || '0', 10) || 0,
+        team?.current_step || 0
+      );
+
+      // CRITICAL PROGRESS SHIELD: Never let stale server state downgrade the team!
+      if (serverStep < localHighest) {
+        console.warn(`Server returned stale step ${serverStep}, but client verified at step ${localHighest}. Protecting progress.`);
+        setIsOffline(false);
+        // Self-heal the server container with the client's verified step
+        fetch('/api/teams/sync-progress', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeToken}`
+          },
+          body: JSON.stringify({ step: localHighest })
+        })
+          .then((r) => r.json())
+          .then((healed) => {
+            if (healed && healed.team && healed.team.current_step >= localHighest) {
+              setTeam(healed.team);
+              if (healed.currentTask) setCurrentTask(healed.currentTask);
+              saveToOfflineCache(healed.team, data.member || member, healed.currentTask || currentTask);
+            }
+          })
+          .catch(() => {});
+        return;
+      }
+
+      // Server is at or ahead of local state -> Accept new state & persist
+      setTeam(data.team);
+      if (data.member) setMember(data.member);
+      if (data.currentTask) setCurrentTask(data.currentTask);
+      setIsOffline(false);
+      saveToOfflineCache(data.team, data.member || member, data.currentTask);
     } catch (err) {
-      // Network drop / offline: keep existing cached team state intact
       console.warn('Network offline or sync failed, using cached state:', err);
       setIsOffline(true);
     } finally {
@@ -161,6 +231,13 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token]);
 
+  // Always ensure any advancement in team.current_step is locked into localStorage
+  useEffect(() => {
+    if (team && typeof team.current_step === 'number') {
+      saveToOfflineCache(team, member, currentTask);
+    }
+  }, [team?.current_step]);
+
   const handleAuthSuccess = ({ team, member, currentTask }) => {
     setToken(localStorage.getItem('thanima_token'));
     setTeam(team);
@@ -173,6 +250,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('thanima_token');
     localStorage.removeItem('thanima_cached_state');
+    localStorage.removeItem('thanima_highest_step');
     setToken(null);
     setTeam(null);
     setMember(null);
@@ -188,7 +266,10 @@ export default function App() {
   const handleScanSuccess = (scanData) => {
     if (scanData.team) {
       setTeam(scanData.team);
-      setCurrentTask(scanData.currentTask);
+      if (scanData.currentTask) {
+        setCurrentTask(scanData.currentTask);
+      }
+      saveToOfflineCache(scanData.team, member, scanData.currentTask || currentTask);
     } else {
       syncTeamState();
     }

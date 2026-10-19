@@ -91,8 +91,9 @@ function readLocalStore() {
       modified = true;
     }
     if (parsed.version !== 10) {
-      parsed.boatQuestions = JSON.parse(JSON.stringify(BOAT_GAME_QUESTIONS));
-      parsed.teams = JSON.parse(JSON.stringify(INITIAL_10_TEAMS));
+      if (!parsed.boatQuestions || parsed.boatQuestions.length !== 10) {
+        parsed.boatQuestions = JSON.parse(JSON.stringify(BOAT_GAME_QUESTIONS));
+      }
       parsed.version = 10;
       modified = true;
     }
@@ -988,4 +989,47 @@ export async function resetTeam(teamId) {
 export async function resetAllTeams() {
   initInitialStore();
   return true;
+}
+
+export async function advanceTeamToStep(teamId, targetStep) {
+  if (typeof targetStep !== 'number' || targetStep < 0 || targetStep > 7) return null;
+  const team = await getTeamById(teamId);
+  if (!team) return null;
+
+  if (targetStep <= (team.current_step || 0)) {
+    return team;
+  }
+
+  const now = new Date().toISOString();
+  const isFinished = targetStep >= 7;
+  const nextPoints = targetStep * 150;
+
+  if (isSupabaseConfigured) {
+    await supabase
+      .from('teams')
+      .update({
+        current_step: targetStep,
+        points: nextPoints,
+        completed_at: isFinished ? now : null,
+        updated_at: now
+      })
+      .eq('id', team.id);
+  } else {
+    const store = readLocalStore();
+    const stTeam = store.teams.find((t) => t.id === teamId);
+    if (stTeam) {
+      stTeam.current_step = targetStep;
+      stTeam.points = nextPoints;
+      stTeam.completed_at = isFinished ? now : null;
+      stTeam.updated_at = now;
+      stTeam.marshal_feedback = null;
+    }
+    writeLocalStore(store);
+  }
+
+  team.current_step = targetStep;
+  team.points = nextPoints;
+  if (isFinished) team.completed_at = now;
+  team.updated_at = now;
+  return team;
 }
