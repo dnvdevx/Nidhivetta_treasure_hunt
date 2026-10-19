@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getTeamPhotoTargets } from '../utils/photoTargets';
 
 const STATIONS = [
   { id: 'Hot n Cold', name: 'Hot n Cold' },
@@ -723,7 +724,7 @@ export default function AdminModal({ isOpen, onClose }) {
                                   Captured Relics Submissions:
                                 </h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {PHOTO_TARGETS.map((tgt) => {
+                                  {getTeamPhotoTargets(t.team_number).map((tgt) => {
                                     const sub = teamPhotos.find((p) => p.target_index === tgt.index);
                                     const isApproved = sub?.status === 'approved';
                                     const isPending = sub?.status === 'pending';
@@ -732,7 +733,7 @@ export default function AdminModal({ isOpen, onClose }) {
                                     return (
                                       <div
                                         key={tgt.index}
-                                        className={`rounded-xl border p-3 flex gap-3 transition ${
+                                        className={`rounded-xl border p-3 flex flex-col justify-between gap-2.5 transition ${
                                           isApproved
                                             ? 'border-emerald-500/50 bg-emerald-950/20'
                                             : isPending
@@ -742,68 +743,92 @@ export default function AdminModal({ isOpen, onClose }) {
                                             : 'border-white/10 bg-card/60 opacity-60'
                                         }`}
                                       >
-                                        {sub?.image_url ? (
-                                          <img
-                                            src={sub.image_url}
-                                            alt={tgt.title}
-                                            onClick={() => setEnlargedPhoto(sub.image_url)}
-                                            className="h-20 w-20 rounded-lg object-cover border border-white/20 cursor-pointer shadow hover:opacity-80 flex-shrink-0"
-                                          />
-                                        ) : (
-                                          <div className="h-20 w-20 rounded-lg border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[10px] text-white/30 text-center p-1 flex-shrink-0">
-                                            <span>Not uploaded</span>
-                                          </div>
-                                        )}
-
-                                        <div className="flex-1 flex flex-col justify-between">
-                                          <div>
-                                            <div className="flex items-center justify-between">
-                                              <span className="text-[10px] font-bold uppercase text-gold">
-                                                Target #{tgt.index + 1}
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] font-bold uppercase text-gold">
+                                              Target #{tgt.index + 1}
+                                            </span>
+                                            {isApproved && (
+                                              <span className="text-[10px] text-emerald-400 font-bold">
+                                                Approved
                                               </span>
-                                              {isApproved && (
-                                                <span className="text-[10px] text-emerald-400 font-bold">
-                                                  Approved
-                                                </span>
-                                              )}
-                                              {isPending && (
-                                                <span className="text-[10px] text-amber-300 font-bold animate-pulse">
-                                                  Under Review
-                                                </span>
-                                              )}
-                                              {isRejected && (
-                                                <span className="text-[10px] text-red-400 font-bold">
-                                                  Rejected
-                                                </span>
-                                              )}
-                                            </div>
-                                            <h6 className="font-semibold text-xs text-white mt-0.5">
-                                              {tgt.title}
-                                            </h6>
-                                            {sub?.participant_name && (
-                                              <p className="text-[10px] text-white/50 mt-0.5">
-                                                By {sub.participant_name}
-                                              </p>
+                                            )}
+                                            {isPending && (
+                                              <span className="text-[10px] text-amber-300 font-bold animate-pulse">
+                                                Under Review
+                                              </span>
+                                            )}
+                                            {isRejected && (
+                                              <span className="text-[10px] text-red-400 font-bold">
+                                                Rejected
+                                              </span>
                                             )}
                                           </div>
 
-                                          {sub && (
-                                            <div className="mt-2 flex gap-1.5">
-                                              <button
-                                                onClick={() => handleReviewPhoto(sub.id, 'approved')}
-                                                className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 py-1 text-[11px] font-bold text-white shadow transition"
-                                              >
-                                                Approve
-                                              </button>
-                                              <button
-                                                onClick={() => handleReviewPhoto(sub.id, 'rejected')}
-                                                className="flex-1 rounded-lg bg-red-800 hover:bg-red-700 py-1 text-[11px] font-bold text-white shadow transition"
-                                              >
-                                                Reject
-                                              </button>
+                                          <h6 className="font-bold text-xs text-white leading-snug">
+                                            {tgt.locationName || tgt.title}
+                                          </h6>
+
+                                          {/* Side-by-side Clue and Uploaded photo */}
+                                          <div className="mt-2 flex items-center gap-2">
+                                            {tgt.clueImage && (
+                                              <div className="relative group flex-1">
+                                                <img
+                                                  src={tgt.clueImage}
+                                                  alt="Clue"
+                                                  onClick={() => setEnlargedPhoto(tgt.clueImage)}
+                                                  className="h-20 w-full rounded-lg object-cover border border-gold/40 cursor-pointer shadow hover:opacity-85"
+                                                />
+                                                <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[8px] font-bold text-gold text-center py-0.5 rounded-b-lg">
+                                                  Clue
+                                                </span>
+                                              </div>
+                                            )}
+
+                                            <div className="relative group flex-1">
+                                              {sub?.image_url ? (
+                                                <>
+                                                  <img
+                                                    src={sub.image_url}
+                                                    alt={tgt.title}
+                                                    onClick={() => setEnlargedPhoto(sub.image_url)}
+                                                    className="h-20 w-full rounded-lg object-cover border border-white/20 cursor-pointer shadow hover:opacity-85"
+                                                  />
+                                                  <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[8px] font-bold text-white/90 text-center py-0.5 rounded-b-lg">
+                                                    Uploaded
+                                                  </span>
+                                                </>
+                                              ) : (
+                                                <div className="h-20 w-full rounded-lg border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[9px] text-white/30 text-center p-1">
+                                                  <span>Not uploaded</span>
+                                                </div>
+                                              )}
                                             </div>
+                                          </div>
+
+                                          {sub?.participant_name && (
+                                            <p className="text-[10px] text-white/50 mt-1">
+                                              By {sub.participant_name}
+                                            </p>
                                           )}
                                         </div>
+
+                                        {sub && (
+                                          <div className="mt-1.5 flex gap-1.5 pt-1.5 border-t border-white/10">
+                                            <button
+                                              onClick={() => handleReviewPhoto(sub.id, 'approved')}
+                                              className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 py-1 text-[11px] font-bold text-white shadow transition"
+                                            >
+                                              Approve
+                                            </button>
+                                            <button
+                                              onClick={() => handleReviewPhoto(sub.id, 'rejected')}
+                                              className="flex-1 rounded-lg bg-red-800 hover:bg-red-700 py-1 text-[11px] font-bold text-white shadow transition"
+                                            >
+                                              Reject
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}

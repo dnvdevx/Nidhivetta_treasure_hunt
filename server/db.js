@@ -258,7 +258,13 @@ export function getTeamCurrentTask(team, localStore = null) {
     const approvedCount = teamSubmissions.filter((s) => s.status === 'approved').length;
     // Sequential: show targets one after the other (up to approvedCount + 1)
     const visibleCount = Math.min(approvedCount + 1, allTargets.length);
-    const visibleTargets = allTargets.slice(0, visibleCount);
+    // Sanitize targets sent to participants: include clueImage, exclude locationName so participants cannot cheat via devtools
+    const visibleTargets = allTargets.slice(0, visibleCount).map((t) => ({
+      index: t.index,
+      title: t.title,
+      clueImage: t.clueImage,
+      description: t.description
+    }));
 
     baseTask.photoGameState = {
       targets: visibleTargets,
@@ -832,6 +838,8 @@ export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, partici
     team_name: team.name,
     target_index: targetIndex,
     target_title: target.title,
+    location_name: target.locationName || target.title,
+    clue_image: target.clueImage || null,
     image_url: imageUrl,
     participant_name: participantName || 'Teammate',
     status: 'pending', // pending, approved, rejected

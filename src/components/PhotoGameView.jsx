@@ -193,16 +193,49 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                 )}
               </div>
 
+              {/* Mystery Clue Image Card */}
+              {tgt.clueImage && (
+                <div className="mt-3.5 pl-8">
+                  <div className="flex items-center justify-between text-[11px] mb-1.5">
+                    <span className="font-semibold text-gold">Mystery Clue:</span>
+                    <span className="text-[10px] text-white/50">Tap image to enlarge</span>
+                  </div>
+                  <div
+                    onClick={() => setPreviewImage(tgt.clueImage)}
+                    className="relative group cursor-pointer overflow-hidden rounded-xl border border-gold/40 bg-black/40 shadow hover:border-gold transition max-w-sm"
+                  >
+                    <img
+                      src={tgt.clueImage}
+                      alt="Mystery Clue"
+                      className="w-full h-44 object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-2 flex items-center justify-between">
+                      <span className="text-[10px] text-gold font-medium bg-black/70 px-2 py-0.5 rounded-full border border-gold/30">
+                        Clue Detail
+                      </span>
+                      <span className="text-[10px] text-white/90 bg-black/70 px-2 py-0.5 rounded-full border border-white/20">
+                        Tap to zoom
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Action / Photo upload button or Thumbnail */}
-              <div className="mt-3 pl-8 flex items-center justify-between">
+              <div className="mt-4 pl-8 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 {submission?.image_url ? (
                   <div className="flex items-center gap-3">
-                    <img
-                      src={submission.image_url}
-                      alt={tgt.title}
-                      onClick={() => setPreviewImage(submission.image_url)}
-                      className="h-14 w-14 rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-80"
-                    />
+                    <div className="relative">
+                      <img
+                        src={submission.image_url}
+                        alt={tgt.title}
+                        onClick={() => setPreviewImage(submission.image_url)}
+                        className="h-16 w-16 rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-80"
+                      />
+                      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] text-center text-white/80 rounded-b-xl py-0.5">
+                        Your photo
+                      </span>
+                    </div>
                     <div className="text-[11px] text-white/60">
                       {isApproved
                         ? 'Coordinator verified! Location cleared.'
@@ -213,15 +246,15 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                   </div>
                 ) : (
                   <span className="text-[11px] text-white/40 italic">
-                    Take a clear full photo of this location
+                    Find this location and upload a full photo
                   </span>
                 )}
 
                 {/* Photo Action Inputs: Camera Snap + Gallery Upload */}
                 {!isApproved && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
                     {/* Option 1: Live Camera Snap */}
-                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-gold text-bg px-3 py-1.5 text-xs font-bold hover:bg-gold/90 active:scale-95 transition shadow-md">
+                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-gold text-bg px-3.5 py-2 text-xs font-bold hover:bg-gold/90 active:scale-95 transition shadow-md">
                       {uploadingTarget === tgt.index ? (
                         'Uploading...'
                       ) : submission ? (
@@ -240,7 +273,7 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                     </label>
 
                     {/* Option 2: Upload from Device / Gallery */}
-                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/25 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-white/20 active:scale-95 transition">
+                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/25 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 active:scale-95 transition">
                       {uploadingTarget === tgt.index ? '...' : 'Gallery'}
                       <input
                         type="file"
@@ -276,10 +309,14 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       {previewImage && (
         <div
           onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-sm"
         >
-          <div className="relative max-w-sm">
-            <img src={previewImage} alt="Enlarged" className="rounded-2xl max-h-[80vh] shadow-2xl" />
+          <div className="relative max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={previewImage}
+              alt="Enlarged"
+              className="rounded-2xl max-h-[85vh] w-full object-contain mx-auto shadow-2xl border border-white/10"
+            />
             <button
               onClick={() => setPreviewImage(null)}
               aria-label="Close"

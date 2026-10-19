@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getTeamPhotoTargets } from '../utils/photoTargets';
 
 // Station definitions & themes
 const STATIONS = [
@@ -519,7 +520,7 @@ export default function GameAdminPage() {
                           Relic Photo Submissions (Review each below):
                         </h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                          {PHOTO_TARGETS.map((tgt) => {
+                          {getTeamPhotoTargets(team.team_number).map((tgt) => {
                             const sub = teamPhotos.find((p) => p.target_index === tgt.index);
                             const isApproved = sub?.status === 'approved';
                             const isPending = sub?.status === 'pending';
@@ -528,7 +529,7 @@ export default function GameAdminPage() {
                             return (
                               <div
                                 key={tgt.index}
-                                className={`rounded-2xl border p-3.5 flex gap-3 transition ${
+                                className={`rounded-2xl border p-3.5 flex flex-col justify-between gap-3 transition ${
                                   isApproved
                                     ? 'border-emerald-500/60 bg-emerald-950/30'
                                     : isPending
@@ -538,68 +539,94 @@ export default function GameAdminPage() {
                                     : 'border-white/10 bg-inset/60 opacity-60'
                                 }`}
                               >
-                                {sub?.image_url ? (
-                                  <img
-                                    src={sub.image_url}
-                                    alt={tgt.title}
-                                    onClick={() => setEnlargedPhoto(sub.image_url)}
-                                    className="h-24 w-24 rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-80 flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-24 w-24 rounded-xl border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[11px] text-white/30 text-center p-2 flex-shrink-0">
-                                    <span>Not uploaded</span>
-                                  </div>
-                                )}
-
-                                <div className="flex-1 flex flex-col justify-between">
-                                  <div>
-                                    <div className="flex items-center justify-between gap-1">
-                                      <span className="text-[10px] font-bold text-gold uppercase">
-                                        Target #{tgt.index + 1}
+                                <div>
+                                  <div className="flex items-center justify-between gap-1 mb-2">
+                                    <span className="text-[10px] font-bold text-gold uppercase tracking-wider">
+                                      Target #{tgt.index + 1}
+                                    </span>
+                                    {isApproved && (
+                                      <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                                        Approved
                                       </span>
-                                      {isApproved && (
-                                        <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
-                                          Approved
-                                        </span>
-                                      )}
-                                      {isPending && (
-                                        <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full animate-pulse">
-                                          Under Review
-                                        </span>
-                                      )}
-                                      {isRejected && (
-                                        <span className="text-[10px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
-                                          Rejected
-                                        </span>
-                                      )}
-                                    </div>
-                                    <h6 className="font-semibold text-xs text-white mt-1 leading-snug">
-                                      {tgt.title}
-                                    </h6>
-                                    {sub?.participant_name && (
-                                      <p className="text-[10px] text-white/50 mt-0.5">
-                                        Uploaded by {sub.participant_name}
-                                      </p>
+                                    )}
+                                    {isPending && (
+                                      <span className="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full animate-pulse">
+                                        Under Review
+                                      </span>
+                                    )}
+                                    {isRejected && (
+                                      <span className="text-[10px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+                                        Rejected
+                                      </span>
                                     )}
                                   </div>
 
-                                  {sub && (
-                                    <div className="mt-2.5 flex items-center gap-1.5">
-                                      <button
-                                        onClick={() => handleReviewPhoto(sub.id, 'approved')}
-                                        className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
-                                      >
-                                        Approve
-                                      </button>
-                                      <button
-                                        onClick={() => handleReviewPhoto(sub.id, 'rejected')}
-                                        className="flex-1 rounded-xl bg-red-800 hover:bg-red-700 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
-                                      >
-                                        Reject
-                                      </button>
+                                  <h6 className="font-serif font-bold text-sm text-white leading-snug">
+                                    {tgt.locationName || tgt.title}
+                                  </h6>
+
+                                  {/* Side-by-side Clue vs Submission */}
+                                  <div className="mt-2.5 flex items-center gap-2">
+                                    {/* Clue thumbnail */}
+                                    {tgt.clueImage && (
+                                      <div className="relative group flex-1">
+                                        <img
+                                          src={tgt.clueImage}
+                                          alt="Clue"
+                                          onClick={() => setEnlargedPhoto(tgt.clueImage)}
+                                          className="h-24 w-full rounded-xl object-cover border border-gold/40 cursor-pointer shadow hover:opacity-85"
+                                        />
+                                        <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[9px] font-bold text-gold text-center py-0.5 rounded-b-xl">
+                                          Clue (Detail)
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    {/* Uploaded photo */}
+                                    <div className="relative group flex-1">
+                                      {sub?.image_url ? (
+                                        <>
+                                          <img
+                                            src={sub.image_url}
+                                            alt={tgt.title}
+                                            onClick={() => setEnlargedPhoto(sub.image_url)}
+                                            className="h-24 w-full rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-85"
+                                          />
+                                          <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[9px] font-bold text-white/90 text-center py-0.5 rounded-b-xl">
+                                            Team Upload
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <div className="h-24 w-full rounded-xl border border-dashed border-white/20 bg-inset flex flex-col items-center justify-center text-[10px] text-white/30 text-center p-2">
+                                          <span>Not uploaded</span>
+                                        </div>
+                                      )}
                                     </div>
+                                  </div>
+
+                                  {sub?.participant_name && (
+                                    <p className="text-[10px] text-white/50 mt-1.5">
+                                      Uploaded by {sub.participant_name}
+                                    </p>
                                   )}
                                 </div>
+
+                                {sub && (
+                                  <div className="mt-2 flex items-center gap-1.5 pt-2 border-t border-white/10">
+                                    <button
+                                      onClick={() => handleReviewPhoto(sub.id, 'approved')}
+                                      className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() => handleReviewPhoto(sub.id, 'rejected')}
+                                      className="flex-1 rounded-xl bg-red-800 hover:bg-red-700 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
