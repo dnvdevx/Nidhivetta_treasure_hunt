@@ -13,6 +13,36 @@ import GameAdminPage from './components/GameAdminPage';
 const WORD = ['K', 'E', 'R', 'A', 'L', 'A', 'M'];
 const POINTS_PER_TASK = 150;
 
+// Lightweight offline serializer: strips heavy base64 images so localStorage stays tiny (<3KB)
+// and never triggers QuotaExceededError or browser low memory warnings
+function saveToOfflineCache(team, member, currentTask) {
+  try {
+    let cleanTask = currentTask;
+    if (currentTask && currentTask.photoGameState) {
+      cleanTask = {
+        ...currentTask,
+        photoGameState: {
+          ...currentTask.photoGameState,
+          submissions: (currentTask.photoGameState.submissions || []).map((s) => ({
+            ...s,
+            image_url: null // Strip heavy base64 from localStorage
+          }))
+        }
+      };
+    }
+    localStorage.setItem(
+      'thanima_cached_state',
+      JSON.stringify({
+        team,
+        member,
+        currentTask: cleanTask
+      })
+    );
+  } catch (err) {
+    console.warn('Could not write to localStorage cache:', err);
+  }
+}
+
 export default function App() {
   // If accessing /game_admin, render dedicated Organizers & Marshals Page
   const isGameAdmin =
@@ -109,17 +139,8 @@ export default function App() {
       setCurrentTask(data.currentTask);
       setIsOffline(false);
 
-      // Persist to offline cache
-      try {
-        localStorage.setItem(
-          'thanima_cached_state',
-          JSON.stringify({
-            team: data.team,
-            member: data.member,
-            currentTask: data.currentTask
-          })
-        );
-      } catch (_) {}
+      // Persist to lightweight offline cache
+      saveToOfflineCache(data.team, data.member, data.currentTask);
     } catch (err) {
       // Network drop / offline: keep existing cached team state intact
       console.warn('Network offline or sync failed, using cached state:', err);
@@ -146,12 +167,7 @@ export default function App() {
     setMember(member);
     setCurrentTask(currentTask);
     setIsOffline(false);
-    try {
-      localStorage.setItem(
-        'thanima_cached_state',
-        JSON.stringify({ team, member, currentTask })
-      );
-    } catch (_) {}
+    saveToOfflineCache(team, member, currentTask);
   };
 
   const handleLogout = () => {

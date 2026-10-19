@@ -1,40 +1,57 @@
 import React, { useState } from 'react';
 
-// Helper to compress client-side captured photo to ~800px JPEG to keep it snappy and light
+// Helper to compress client-side captured photo to lightweight ~800px JPEG
+// Uses URL.createObjectURL instead of loading raw 20MB files into base64 RAM
 function compressImage(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (e) => {
-      const img = new Image();
-      img.src = e.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 850;
-        let width = img.width;
-        let height = img.height;
+    let objectUrl = null;
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch (err) {
+      return reject(err);
+    }
 
-        if (width > height) {
-          if (width > maxDim) {
-            height *= maxDim / width;
-            width = maxDim;
-          }
-        } else {
-          if (height > maxDim) {
-            width *= maxDim / height;
-            height = maxDim;
-          }
+    const img = new Image();
+    img.onload = () => {
+      // Immediately release the blob memory URL
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+
+      const maxDim = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
         }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
-      };
-      img.onerror = reject;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Clean up Image object bitmap memory
+      img.src = '';
+
+      // 0.65 quality gives clear photos at only ~60-90KB each
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      resolve(compressedDataUrl);
     };
-    reader.onerror = reject;
+
+    img.onerror = (err) => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      reject(err);
+    };
+
+    img.src = objectUrl;
   });
 }
 
