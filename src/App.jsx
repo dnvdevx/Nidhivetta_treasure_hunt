@@ -94,7 +94,6 @@ export default function App() {
     setTeam(team);
     setMember(member);
     setCurrentTask(currentTask);
-    showToast(`Welcome ${team.name}! First Gate Passed. Letter "K" Unlocked!`);
   };
 
   const handleLogout = () => {
@@ -108,7 +107,7 @@ export default function App() {
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(''), 6000);
+    setTimeout(() => setToast(''), 4500);
   };
 
   const handleScanSuccess = (scanData) => {
@@ -133,7 +132,10 @@ export default function App() {
       <div className="w-full max-w-md px-3.5 sm:px-5 pb-16 overflow-x-hidden">
         {/* Toast Alert */}
         {toast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm rounded-2xl border-2 border-gold bg-card/95 p-3.5 shadow-2xl backdrop-blur text-center text-xs sm:text-sm font-bold text-gold animate-bounce">
+          <div
+            onClick={() => setToast('')}
+            className="fixed top-4 inset-x-3.5 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 z-50 max-w-sm sm:w-full mx-auto rounded-2xl border border-gold/70 bg-card/95 p-3.5 shadow-2xl backdrop-blur text-center text-xs sm:text-sm font-bold text-gold cursor-pointer transition"
+          >
             {toast}
           </div>
         )}

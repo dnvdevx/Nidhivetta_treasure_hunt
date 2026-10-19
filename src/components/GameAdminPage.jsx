@@ -419,7 +419,7 @@ export default function GameAdminPage() {
 
       {/* Action Toast Notification */}
       {actionMsg && (
-        <div className="fixed top-16 right-4 z-50 rounded-2xl border border-gold/50 bg-card p-3.5 text-xs font-bold text-gold shadow-2xl animate-bounce">
+        <div className="fixed top-16 right-4 left-4 sm:left-auto sm:max-w-sm z-50 rounded-2xl border border-gold/50 bg-card p-3.5 text-xs font-bold text-gold shadow-2xl">
           {actionMsg}
         </div>
       )}
