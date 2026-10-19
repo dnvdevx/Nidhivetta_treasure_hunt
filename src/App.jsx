@@ -252,6 +252,12 @@ export default function App() {
     localStorage.removeItem('thanima_cached_state');
     localStorage.removeItem('thanima_highest_step');
     localStorage.removeItem('thanima_approved_photos');
+    for (let i = 0; i < 3; i++) {
+      try {
+        localStorage.removeItem(`thanima_photo_upload_${i}`);
+        sessionStorage.removeItem(`thanima_photo_upload_${i}`);
+      } catch (_) {}
+    }
     setToken(null);
     setTeam(null);
     setMember(null);

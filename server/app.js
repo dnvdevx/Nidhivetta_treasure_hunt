@@ -457,8 +457,8 @@ app.post('/api/admin/photo-submissions/review', async (req, res) => {
   }
 
   try {
-    const { submissionId, status, comment } = req.body;
-    const result = await reviewPhotoSubmission({ submissionId, status, comment });
+    const { submissionId, status, comment, teamId, targetIndex } = req.body;
+    const result = await reviewPhotoSubmission({ submissionId, status, comment, teamId, targetIndex });
     res.json({
       message: `Photo marked as ${status}!`,
       ...result

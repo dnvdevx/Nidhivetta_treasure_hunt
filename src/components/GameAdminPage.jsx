@@ -142,7 +142,14 @@ export default function GameAdminPage() {
 
   // Live Data
   const [teams, setTeams] = useState([]);
-  const [photoSubmissions, setPhotoSubmissions] = useState([]);
+  const [photoSubmissions, setPhotoSubmissions] = useState(() => {
+    try {
+      const cached = localStorage.getItem('thanima_admin_cached_photos');
+      return cached ? JSON.parse(cached) : [];
+    } catch (_) {
+      return [];
+    }
+  });
   const [boatQuestions, setBoatQuestions] = useState([]);
   const [enlargedPhoto, setEnlargedPhoto] = useState(null);
 
@@ -287,7 +294,33 @@ export default function GameAdminPage() {
       const pRes = await fetch(`/api/admin/photo-submissions?key=${encodeURIComponent(k)}`);
       if (pRes.ok) {
         const pData = await pRes.json();
-        setPhotoSubmissions(pData || []);
+        setPhotoSubmissions((prev) => {
+          const incoming = Array.isArray(pData) ? pData : [];
+          if (incoming.length === 0 && prev.length > 0) return prev;
+          const map = new Map();
+          (prev || []).forEach((item) => {
+            const key = `${item.team_id}-${item.target_index}`;
+            map.set(key, item);
+          });
+          incoming.forEach((item) => {
+            const key = `${item.team_id}-${item.target_index}`;
+            const existing = map.get(key);
+            if (existing) {
+              map.set(key, {
+                ...existing,
+                ...item,
+                image_url: item.image_url || existing.image_url
+              });
+            } else {
+              map.set(key, item);
+            }
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(merged));
+          } catch (_) {}
+          return merged;
+        });
       }
 
       const bRes = await fetch(`/api/admin/boat-questions?key=${encodeURIComponent(k)}`);
@@ -373,7 +406,21 @@ export default function GameAdminPage() {
   };
 
   // Review individual photo
-  const handleReviewPhoto = async (submissionId, status) => {
+  const handleReviewPhoto = async (submissionId, status, extra = {}) => {
+    // Immediately update local state so admin UI never flickers
+    setPhotoSubmissions((prev) => {
+      const next = prev.map((p) => {
+        if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && p.target_index === extra.targetIndex)) {
+          return { ...p, status };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+
     try {
       const res = await fetch('/api/admin/photo-submissions/review', {
         method: 'POST',
@@ -381,7 +428,9 @@ export default function GameAdminPage() {
         body: JSON.stringify({
           adminKey: session.key,
           submissionId,
-          status
+          status,
+          teamId: extra.teamId,
+          targetIndex: extra.targetIndex
         })
       });
       const data = await res.json();
@@ -754,13 +803,13 @@ export default function GameAdminPage() {
                                 {sub && (
                                   <div className="mt-2 flex items-center gap-1.5 pt-2 border-t border-white/10">
                                     <button
-                                      onClick={() => handleReviewPhoto(sub.id, 'approved')}
+                                      onClick={() => handleReviewPhoto(sub.id, 'approved', { teamId: team.id, targetIndex: tgt.index })}
                                       className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
                                     >
                                       Approve
                                     </button>
                                     <button
-                                      onClick={() => handleReviewPhoto(sub.id, 'rejected')}
+                                      onClick={() => handleReviewPhoto(sub.id, 'rejected', { teamId: team.id, targetIndex: tgt.index })}
                                       className="flex-1 rounded-xl bg-red-800 hover:bg-red-700 py-1.5 text-xs font-bold text-white shadow transition active:scale-95"
                                     >
                                       Reject

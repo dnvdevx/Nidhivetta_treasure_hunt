@@ -74,12 +74,12 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
     }
   });
 
-  // Session cache of active uploads so uploaded thumbnails appear instantly without flicker
+  // Cache of active uploads so uploaded thumbnails appear instantly without flicker
   const [localUploads, setLocalUploads] = useState(() => {
     const uploads = {};
     for (let idx = 0; idx < 3; idx++) {
       try {
-        const up = sessionStorage.getItem(`thanima_photo_upload_${idx}`);
+        const up = sessionStorage.getItem(`thanima_photo_upload_${idx}`) || localStorage.getItem(`thanima_photo_upload_${idx}`);
         if (up) uploads[idx] = up;
       } catch (_) {}
     }
@@ -125,6 +125,7 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       if (s.status === 'rejected') {
         try {
           sessionStorage.removeItem(`thanima_photo_upload_${s.target_index}`);
+          localStorage.removeItem(`thanima_photo_upload_${s.target_index}`);
           setLocalUploads((prev) => {
             const copy = { ...prev };
             delete copy[s.target_index];
@@ -145,9 +146,10 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
     try {
       const base64 = await compressImage(file);
 
-      // Save locally in session immediately so it appears on screen without delay
+      // Save locally immediately so it appears on screen without delay
       try {
         sessionStorage.setItem(`thanima_photo_upload_${targetIndex}`, base64);
+        localStorage.setItem(`thanima_photo_upload_${targetIndex}`, base64);
         setLocalUploads((prev) => ({ ...prev, [targetIndex]: base64 }));
       } catch (_) {}
 

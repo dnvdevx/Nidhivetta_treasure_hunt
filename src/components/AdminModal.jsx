@@ -46,7 +46,15 @@ export default function AdminModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [teams, setTeams] = useState([]);
-  const [photoSubmissions, setPhotoSubmissions] = useState([]);
+  const [photoSubmissions, setPhotoSubmissions] = useState(() => {
+    try {
+      const cached = localStorage.getItem('thanima_admin_cached_photos');
+      return cached ? JSON.parse(cached) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const [resetConfirmationCode, setResetConfirmationCode] = useState('');
   const [startQrs, setStartQrs] = useState([]);
   const [gameQrs, setGameQrs] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -74,7 +82,33 @@ export default function AdminModal({ isOpen, onClose }) {
     const boatData = await boatRes.json();
 
     setTeams(teamData.teams || []);
-    setPhotoSubmissions(photoData || []);
+    setPhotoSubmissions((prev) => {
+      const incoming = Array.isArray(photoData) ? photoData : [];
+      if (incoming.length === 0 && prev.length > 0) return prev;
+      const map = new Map();
+      (prev || []).forEach((item) => {
+        const key = `${item.team_id}-${item.target_index}`;
+        map.set(key, item);
+      });
+      incoming.forEach((item) => {
+        const key = `${item.team_id}-${item.target_index}`;
+        const existing = map.get(key);
+        if (existing) {
+          map.set(key, {
+            ...existing,
+            ...item,
+            image_url: item.image_url || existing.image_url
+          });
+        } else {
+          map.set(key, item);
+        }
+      });
+      const merged = Array.from(map.values());
+      try {
+        localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(merged));
+      } catch (_) {}
+      return merged;
+    });
     setStartQrs(qrData.startQrs || []);
     setGameQrs(qrData.gameQrs || []);
     setBoatQuestions(boatData || []);
@@ -143,7 +177,21 @@ export default function AdminModal({ isOpen, onClose }) {
     }
   };
 
-  const handleReviewPhoto = async (submissionId, status) => {
+  const handleReviewPhoto = async (submissionId, status, extra = {}) => {
+    // Immediately update local cache
+    setPhotoSubmissions((prev) => {
+      const next = prev.map((p) => {
+        if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && p.target_index === extra.targetIndex)) {
+          return { ...p, status };
+        }
+        return p;
+      });
+      try {
+        localStorage.setItem('thanima_admin_cached_photos', JSON.stringify(next));
+      } catch (_) {}
+      return next;
+    });
+
     try {
       setActionMessage('');
       const res = await fetch('/api/admin/photo-submissions/review', {
@@ -152,7 +200,9 @@ export default function AdminModal({ isOpen, onClose }) {
         body: JSON.stringify({
           adminKey: adminKey.trim(),
           submissionId,
-          status
+          status,
+          teamId: extra.teamId,
+          targetIndex: extra.targetIndex
         })
       });
       const data = await res.json();
@@ -262,15 +312,26 @@ export default function AdminModal({ isOpen, onClose }) {
   };
 
   const handleResetAll = async () => {
-    if (!window.confirm('Reset ALL 10 teams and all photo submissions to 0?')) return;
+    if (!resetConfirmationCode || !resetConfirmationCode.trim()) {
+      setActionMessage('Please enter the confirmation passcode to reset all teams.');
+      return;
+    }
     try {
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: adminKey.trim(), all: true })
+        body: JSON.stringify({
+          adminKey: resetConfirmationCode.trim(),
+          masterPassword: resetConfirmationCode.trim(),
+          all: true
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
+      try {
+        localStorage.removeItem('thanima_admin_cached_photos');
+      } catch (_) {}
+      setResetConfirmationCode('');
       setActionMessage('All 10 teams reset to step 0!');
       await fetchDashboardData(adminKey);
     } catch (err) {
@@ -334,12 +395,12 @@ export default function AdminModal({ isOpen, onClose }) {
   });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 px-4">
-      <div className="w-full max-w-4xl rounded-3xl border border-gold/40 bg-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 px-2.5 sm:px-4">
+      <div className="w-full max-w-4xl rounded-3xl border border-gold/40 bg-card p-4 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-gold/20 pb-3">
           <div>
-            <h3 className="font-serif text-2xl font-bold text-gold">Organizers & Marshals Desk</h3>
-            <p className="text-[11px] text-white/50 tracking-wider uppercase">Live Approvals • Photo Review • Roster Feed</p>
+            <h3 className="font-serif text-xl sm:text-2xl font-bold text-gold">Organizers & Marshals Desk</h3>
+            <p className="text-[10px] sm:text-[11px] text-white/50 tracking-wider uppercase">Live Approvals • Photo Review • Roster Feed</p>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white p-1">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,9 +436,9 @@ export default function AdminModal({ isOpen, onClose }) {
             </button>
           </form>
         ) : (
-          <div className="mt-5 space-y-5">
+          <div className="mt-4 sm:mt-5 space-y-4 sm:space-y-5">
             {/* Nav tabs */}
-            <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3 text-xs font-bold">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none whitespace-nowrap border-b border-white/10 text-xs font-bold">
               <button
                 onClick={() => setTab('teams_matrix')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
@@ -815,13 +876,13 @@ export default function AdminModal({ isOpen, onClose }) {
                                         {sub && (
                                           <div className="mt-1.5 flex gap-1.5 pt-1.5 border-t border-white/10">
                                             <button
-                                              onClick={() => handleReviewPhoto(sub.id, 'approved')}
+                                              onClick={() => handleReviewPhoto(sub.id, 'approved', { teamId: t.id, targetIndex: tgt.index })}
                                               className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 py-1 text-[11px] font-bold text-white shadow transition"
                                             >
                                               Approve
                                             </button>
                                             <button
-                                              onClick={() => handleReviewPhoto(sub.id, 'rejected')}
+                                              onClick={() => handleReviewPhoto(sub.id, 'rejected', { teamId: t.id, targetIndex: tgt.index })}
                                               className="flex-1 rounded-lg bg-red-800 hover:bg-red-700 py-1 text-[11px] font-bold text-white shadow transition"
                                             >
                                               Reject
@@ -1429,8 +1490,17 @@ export default function AdminModal({ isOpen, onClose }) {
                   Reset Hunt
                 </h4>
                 <p className="text-xs text-white/70 leading-relaxed">
-                  Reset all 10 teams' steps, scores, timestamps, and photo submissions back to 0.
+                  Reset all 10 teams' steps, scores, timestamps, and photo submissions back to 0. This operation requires the confirmation passcode.
                 </p>
+                <div className="max-w-xs space-y-2">
+                  <input
+                    type="password"
+                    value={resetConfirmationCode}
+                    onChange={(e) => setResetConfirmationCode(e.target.value)}
+                    placeholder="Enter confirmation passcode"
+                    className="w-full rounded-xl border border-red-500/40 bg-card px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-red-400 focus:outline-none"
+                  />
+                </div>
                 <button
                   onClick={handleResetAll}
                   className="rounded-xl bg-crimson px-5 py-3 text-xs font-bold text-white hover:bg-crimson/80 transition"

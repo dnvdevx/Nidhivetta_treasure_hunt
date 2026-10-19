@@ -907,10 +907,46 @@ export async function skipPhotoTarget({ teamId }) {
 }
 
 // PHOTO GAME: Marshal reviews and approves/rejects a submission
-export async function reviewPhotoSubmission({ submissionId, status, comment }) {
+export async function reviewPhotoSubmission({ submissionId, status, comment, teamId, targetIndex }) {
   const store = isSupabaseConfigured ? null : readLocalStore();
-  const submission = store.photoSubmissions?.find((s) => s.id === submissionId);
-  if (!submission) throw new Error('Submission not found');
+  let submission = store.photoSubmissions?.find((s) => s.id === submissionId);
+
+  // Fallback 1: Lookup by teamId and targetIndex
+  if (!submission && teamId !== undefined && targetIndex !== undefined) {
+    submission = store.photoSubmissions?.find(
+      (s) => s.team_id === teamId && s.target_index === Number(targetIndex)
+    );
+  }
+
+  // Fallback 2: Parse teamId and targetIndex from ID string pattern (photo-{teamId}-{targetIndex}-...)
+  if (!submission && submissionId && String(submissionId).startsWith('photo-')) {
+    const parts = String(submissionId).split('-');
+    // format: photo-team-X-Y-timestamp
+    if (parts.length >= 4) {
+      const parsedTeamId = `${parts[1]}-${parts[2]}`;
+      const parsedTargetIdx = parseInt(parts[3], 10);
+      if (!isNaN(parsedTargetIdx)) {
+        teamId = teamId || parsedTeamId;
+        targetIndex = targetIndex !== undefined ? targetIndex : parsedTargetIdx;
+        submission = store.photoSubmissions?.find(
+          (s) => s.team_id === teamId && s.target_index === parsedTargetIdx
+        );
+      }
+    }
+  }
+
+  // Fallback 3: Reconstruct stub submission if cold container missed upload
+  if (!submission) {
+    if (!store.photoSubmissions) store.photoSubmissions = [];
+    submission = {
+      id: submissionId || `photo-${teamId || 'unknown'}-${targetIndex ?? 0}`,
+      team_id: teamId || 'team-1',
+      target_index: targetIndex !== undefined ? Number(targetIndex) : 0,
+      status: 'pending',
+      submitted_at: new Date().toISOString()
+    };
+    store.photoSubmissions.push(submission);
+  }
 
   const now = new Date().toISOString();
   submission.status = status; // 'approved' or 'rejected'
@@ -920,34 +956,41 @@ export async function reviewPhotoSubmission({ submissionId, status, comment }) {
   let taskCompleted = false;
   let completeResult = null;
 
+  const targetTeamId = submission.team_id || teamId;
+  const targetIdx = submission.target_index !== undefined ? submission.target_index : Number(targetIndex);
+
   if (status === 'approved') {
-    const stTeam = store.teams?.find((t) => t.id === submission.team_id);
+    const stTeam = store.teams?.find((t) => t.id === targetTeamId);
     if (stTeam) {
       if (!stTeam.approved_photo_targets) stTeam.approved_photo_targets = [];
-      if (!stTeam.approved_photo_targets.includes(submission.target_index)) {
-        stTeam.approved_photo_targets.push(submission.target_index);
+      if (!stTeam.approved_photo_targets.includes(targetIdx)) {
+        stTeam.approved_photo_targets.push(targetIdx);
       }
     }
 
-    // Check if team now has 3 approved photos
+    // Check if team now has 3 approved photos (via store or team.approved_photo_targets)
     const teamSubmissions = store.photoSubmissions.filter(
-      (s) => s.team_id === submission.team_id && s.status === 'approved'
+      (s) => s.team_id === targetTeamId && s.status === 'approved'
+    );
+    const approvedCount = Math.max(
+      teamSubmissions.length,
+      stTeam?.approved_photo_targets?.length || 0
     );
 
-    if (teamSubmissions.length >= 3) {
+    if (approvedCount >= 3) {
       writeLocalStore(store);
       completeResult = await completeTeamTask({
-        teamId: submission.team_id,
+        teamId: targetTeamId,
         participantName: 'Photo Game Marshal',
         method: 'PHOTO_GAME_MARSHAL_APPROVAL'
       });
       taskCompleted = true;
     }
   } else if (status === 'rejected') {
-    const stTeam = store.teams?.find((t) => t.id === submission.team_id);
+    const stTeam = store.teams?.find((t) => t.id === targetTeamId);
     if (stTeam && stTeam.approved_photo_targets) {
       stTeam.approved_photo_targets = stTeam.approved_photo_targets.filter(
-        (idx) => idx !== submission.target_index
+        (idx) => idx !== targetIdx
       );
     }
   }
