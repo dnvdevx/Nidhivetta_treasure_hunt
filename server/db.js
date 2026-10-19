@@ -1139,8 +1139,28 @@ export async function updateTeamRoster(teamId, { name, passcode, members }) {
 }
 
 export async function resetTeam(teamId) {
+  if (isSupabaseConfigured) {
+    try {
+      await supabase
+        .from('teams')
+        .update({
+          current_step: 0,
+          points: 0,
+          completed_at: null,
+          photo_skips_used: 0,
+          boat_question_unlocked: false,
+          claimed_boat_question: null,
+          approved_photo_targets: [],
+          marshal_feedback: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId);
+      await supabase.from('scans').delete().eq('team_id', teamId);
+    } catch (_) {}
+  }
+
   const store = readLocalStore();
-  const team = store.teams.find((t) => t.id === teamId);
+  const team = store.teams.find((t) => t.id === teamId || t.team_number === Number(teamId));
   if (team) {
     team.current_step = 0;
     team.points = 0;
@@ -1149,14 +1169,34 @@ export async function resetTeam(teamId) {
     team.boat_question_unlocked = false;
     team.claimed_boat_question = null;
     team.approved_photo_targets = [];
-    store.scans = store.scans.filter((s) => s.team_id !== teamId);
-    store.photoSubmissions = (store.photoSubmissions || []).filter((s) => s.team_id !== teamId);
+    team.marshal_feedback = null;
+    store.scans = store.scans.filter((s) => s.team_id !== team.id);
+    store.photoSubmissions = (store.photoSubmissions || []).filter((s) => s.team_id !== team.id);
     writeLocalStore(store);
   }
   return true;
 }
 
 export async function resetAllTeams() {
+  if (isSupabaseConfigured) {
+    try {
+      await supabase
+        .from('teams')
+        .update({
+          current_step: 0,
+          points: 0,
+          completed_at: null,
+          photo_skips_used: 0,
+          boat_question_unlocked: false,
+          claimed_boat_question: null,
+          approved_photo_targets: [],
+          marshal_feedback: null,
+          updated_at: new Date().toISOString()
+        })
+        .neq('id', 'non-existent');
+      await supabase.from('scans').delete().neq('id', 'non-existent');
+    } catch (_) {}
+  }
   initInitialStore();
   return true;
 }

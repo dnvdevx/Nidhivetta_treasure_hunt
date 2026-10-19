@@ -1,6 +1,8 @@
 // Master Organizer Common Passwords
 export const MASTER_ADMIN_PASSWORDS = [
   'THANIMA@CORE26',
+  'RESET@THANIMA26',
+  'THANIMA#RESET26',
   'thanima-admin-2026'
 ];
 

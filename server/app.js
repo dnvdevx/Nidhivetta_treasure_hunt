@@ -49,7 +49,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'thanima-nidhivetta-secret-key-2026
 
 // Helper to authenticate Master Organizers or Game Station Volunteers
 export function checkAdminAuth(req, isMasterOnly = false) {
-  const key = req.body?.adminKey || req.query?.key || req.headers['x-admin-key'];
+  const key =
+    req.body?.adminKey ||
+    req.body?.passcode ||
+    req.body?.masterPassword ||
+    req.body?.resetPasscode ||
+    req.query?.key ||
+    req.headers['x-admin-key'];
   const result = verifyAdminOrStationPasscode(key);
   if (!result.valid) {
     return { ok: false, status: 403, error: 'Unauthorized. Invalid Organizer or Station Passcode.' };

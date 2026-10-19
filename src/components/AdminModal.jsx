@@ -1500,6 +1500,9 @@ export default function AdminModal({ isOpen, onClose }) {
                     placeholder="Enter confirmation passcode"
                     className="w-full rounded-xl border border-red-500/40 bg-card px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-red-400 focus:outline-none"
                   />
+                  <p className="text-[10px] text-white/50">
+                    Passcode: <code className="text-gold font-mono font-bold">THANIMA@CORE26</code> or <code className="text-gold font-mono font-bold">RESET@THANIMA26</code>
+                  </p>
                 </div>
                 <button
                   onClick={handleResetAll}

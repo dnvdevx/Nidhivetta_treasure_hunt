@@ -156,6 +156,7 @@ export default function GameAdminPage() {
   // Deny modal state
   const [denyingTeam, setDenyingTeam] = useState(null);
   const [customDenyReason, setCustomDenyReason] = useState('');
+  const [resetPasscodeInput, setResetPasscodeInput] = useState('');
 
   // Perform login with entered passcode
   const handleLogin = async (e, directCode = null) => {
@@ -468,6 +469,67 @@ export default function GameAdminPage() {
     }
   };
 
+  // Reset All 10 Teams
+  const handleResetAll = async (confirmCode) => {
+    const code = (confirmCode || '').trim();
+    if (!code) {
+      alert('Please enter the confirmation passcode to reset all teams.');
+      return;
+    }
+    if (
+      !window.confirm(
+        '⚠️ ARE YOU ABSOLUTELY SURE?\n\nThis will reset ALL 10 teams back to Step 0, clear their scores, timestamps, scans, and photo submissions.\n\nThis cannot be undone!'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminKey: code,
+          passcode: code,
+          masterPassword: code,
+          all: true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Reset failed');
+      showActionToast('✓ All 10 teams have been reset to Step 0!');
+      localStorage.removeItem('thanima_admin_cached_photos');
+      setPhotoSubmissions([]);
+      setResetPasscodeInput('');
+      await fetchLiveData(session.key);
+    } catch (err) {
+      alert(`Reset Error: ${err.message}`);
+    }
+  };
+
+  // Reset Single Team
+  const handleResetSingleTeam = async (teamId, teamName) => {
+    if (!window.confirm(`Reset progress of ${teamName || teamId} to Step 0?`)) return;
+
+    try {
+      const res = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminKey: session.key,
+          passcode: session.key,
+          teamId
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Reset failed');
+      showActionToast(`✓ ${teamName || teamId} reset to Step 0!`);
+      await fetchLiveData(session.key);
+    } catch (err) {
+      alert(`Reset Error: ${err.message}`);
+    }
+  };
+
   const handleLogout = () => {
     sessionStorage.removeItem('thanima_admin_pass');
     sessionStorage.removeItem('thanima_unlocked_stations');
@@ -596,6 +658,25 @@ export default function GameAdminPage() {
               </div>
             )}
 
+            {/* Master instant Reset Hunt button */}
+            {session.isMaster && (
+              <button
+                onClick={() => {
+                  setActiveStation(null);
+                  setMasterTab('reset');
+                }}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 flex items-center gap-1.5 border ${
+                  masterTab === 'reset' && !activeStation
+                    ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30'
+                    : 'border-red-500/40 bg-red-950/40 text-red-300 hover:bg-red-900/60 hover:text-white'
+                }`}
+                title="Reset Hunt Progress"
+              >
+                <span>⚠️</span>
+                <span>Reset Hunt</span>
+              </button>
+            )}
+
             <button
               onClick={handleLogout}
               className="rounded-xl border border-white/20 bg-inset px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white hover:border-red-400/50 transition active:scale-95"
@@ -661,8 +742,13 @@ export default function GameAdminPage() {
               /* ======================================= */
               <div className="space-y-4">
                 {currentStationTeams.map((team) => {
-                  const teamPhotos = photoSubmissions.filter((p) => p.team_id === team.id);
-                  const approvedCount = teamPhotos.filter((p) => p.status === 'approved').length;
+                  const teamPhotos = photoSubmissions.filter(
+                    (p) => p.team_id === team.id || Number(p.team_number) === Number(team.team_number)
+                  );
+                  const approvedCount = Math.max(
+                    teamPhotos.filter((p) => p.status === 'approved').length,
+                    team.approved_photo_targets?.length || 0
+                  );
 
                   return (
                     <div
@@ -710,10 +796,11 @@ export default function GameAdminPage() {
                         </h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                           {getTeamPhotoTargets(team.team_number).map((tgt) => {
-                            const sub = teamPhotos.find((p) => p.target_index === tgt.index);
-                            const isApproved = sub?.status === 'approved';
-                            const isPending = sub?.status === 'pending';
-                            const isRejected = sub?.status === 'rejected';
+                            const sub = teamPhotos.find((p) => Number(p.target_index) === Number(tgt.index));
+                            const isApproved =
+                              sub?.status === 'approved' || Boolean(team.approved_photo_targets?.includes(tgt.index));
+                            const isPending = !isApproved && sub?.status === 'pending';
+                            const isRejected = !isApproved && sub?.status === 'rejected';
 
                             return (
                               <div
@@ -921,30 +1008,45 @@ export default function GameAdminPage() {
           /* ========================================================= */
           <div className="space-y-6">
             {/* Master Navigation Bar */}
-            <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3 text-xs font-bold">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3 text-xs font-bold">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setMasterTab('stations')}
+                  className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
+                    masterTab === 'stations' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
+                  }`}
+                >
+                  Game Stations
+                </button>
+                <button
+                  onClick={() => setMasterTab('teams')}
+                  className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
+                    masterTab === 'teams' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
+                  }`}
+                >
+                  All 10 Teams
+                </button>
+                <button
+                  onClick={() => setMasterTab('boat_fleet')}
+                  className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
+                    masterTab === 'boat_fleet' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
+                  }`}
+                >
+                  Boat Fleet (20 Boats)
+                </button>
+              </div>
+
+              {/* Dedicated Reset Hunt Tab */}
               <button
-                onClick={() => setMasterTab('stations')}
-                className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
-                  masterTab === 'stations' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
+                onClick={() => setMasterTab('reset')}
+                className={`px-4 py-2 rounded-xl transition flex items-center gap-2 font-bold ${
+                  masterTab === 'reset'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/30'
+                    : 'bg-red-950/40 text-red-300 border border-red-500/40 hover:bg-red-900/50'
                 }`}
               >
-                Game Stations
-              </button>
-              <button
-                onClick={() => setMasterTab('teams')}
-                className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
-                  masterTab === 'teams' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
-                }`}
-              >
-                All 10 Teams
-              </button>
-              <button
-                onClick={() => setMasterTab('boat_fleet')}
-                className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
-                  masterTab === 'boat_fleet' ? 'bg-gold text-bg' : 'bg-inset text-white/70 hover:text-white'
-                }`}
-              >
-                Boat Fleet (20 Boats)
+                <span>⚠️</span>
+                <span>Reset Hunt</span>
               </button>
             </div>
 
@@ -1080,12 +1182,22 @@ export default function GameAdminPage() {
                           </div>
                         </div>
 
-                        {/* Currently Playing Station */}
+                        {/* Currently Playing Station & Reset Team Button */}
                         <div className="rounded-xl bg-inset p-2.5 flex items-center justify-between border border-white/5">
-                          <span className="text-xs text-white/60">Current Trial:</span>
-                          <span className="text-xs font-bold text-gold">
-                            {isFinished ? 'Completed' : t.currentGame}
-                          </span>
+                          <div>
+                            <span className="text-xs text-white/60">Current Trial: </span>
+                            <span className="text-xs font-bold text-gold">
+                              {isFinished ? 'Completed' : t.currentGame}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleResetSingleTeam(t.id, t.name)}
+                            className="rounded-lg border border-red-500/30 bg-red-950/40 hover:bg-red-900/60 text-red-300 px-2.5 py-1 text-[11px] font-bold transition active:scale-95 flex items-center gap-1"
+                            title="Reset this team to Step 0"
+                          >
+                            <span>↺</span>
+                            <span>Reset</span>
+                          </button>
                         </div>
 
                         <div className="text-xs text-white/60 space-y-0.5">
@@ -1236,6 +1348,103 @@ export default function GameAdminPage() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: RESET HUNT CONTROL CENTER */}
+            {masterTab === 'reset' && (
+              <div className="space-y-6 max-w-3xl">
+                <div>
+                  <h3 className="font-serif text-2xl font-bold text-red-400 flex items-center gap-2">
+                    <span>⚠️</span>
+                    <span>Hunt Progress Reset Control</span>
+                  </h3>
+                  <p className="text-xs text-white/70 mt-1 leading-relaxed">
+                    Safely reset all 10 teams or an individual team's progress back to Step 0.
+                  </p>
+                </div>
+
+                {/* Reset All Teams Card */}
+                <div className="rounded-3xl border-2 border-red-500/40 bg-card p-6 space-y-4 shadow-2xl">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                        <span>🔥</span>
+                        <span>Reset All 10 Teams (Full Fresh Start)</span>
+                      </h4>
+                      <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                        This resets all 10 teams' steps, scores, timestamps, boat claims, and photo submissions back to Step 0.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-red-500/20 text-red-300 border border-red-500/40 px-3 py-1 text-xs font-bold whitespace-nowrap">
+                      Passcode Protected
+                    </span>
+                  </div>
+
+                  <div className="rounded-2xl bg-inset p-4 space-y-2 border border-white/10">
+                    <label className="text-xs font-semibold text-white/80 block">
+                      Enter Reset Passcode:
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                      <input
+                        type="password"
+                        value={resetPasscodeInput}
+                        onChange={(e) => setResetPasscodeInput(e.target.value)}
+                        placeholder="Enter Confirmation Passcode"
+                        className="flex-1 rounded-xl border border-red-500/40 bg-card px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-red-400 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => handleResetAll(resetPasscodeInput)}
+                        className="rounded-xl bg-red-600 hover:bg-red-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-600/30 transition active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <span>Reset All 10 Teams</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-white/50 pt-1">
+                      Reset Passcode: <code className="text-gold font-mono font-bold">THANIMA@CORE26</code> or <code className="text-gold font-mono font-bold">RESET@THANIMA26</code>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Reset Individual Team Card */}
+                <div className="rounded-3xl border border-white/10 bg-card p-6 space-y-4 shadow-xl">
+                  <div>
+                    <h4 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                      <span>↺</span>
+                      <span>Reset Individual Team</span>
+                    </h4>
+                    <p className="text-xs text-white/60 mt-1">
+                      Reset only a single team back to Step 0 without affecting other teams.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {teams.map((t) => (
+                      <div
+                        key={t.id}
+                        className="rounded-2xl border border-white/10 bg-inset p-3.5 flex items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gold text-bg text-[10px] font-black">
+                              {t.team_number}
+                            </span>
+                            <span className="font-bold text-sm text-white">{t.name}</span>
+                          </div>
+                          <p className="text-[11px] text-white/50 mt-0.5">
+                            Step {t.current_step || 0}/7 • {t.isFinished ? 'Completed' : (t.currentGame || 'Starting')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleResetSingleTeam(t.id, t.name)}
+                          className="rounded-xl border border-red-500/30 bg-red-950/40 hover:bg-red-900/60 text-red-200 px-3 py-1.5 text-xs font-bold transition active:scale-95"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
