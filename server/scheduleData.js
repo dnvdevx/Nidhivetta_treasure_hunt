@@ -572,9 +572,9 @@ export const BOAT_GAME_QUESTIONS = [
     teamNumber: 6,
     questionBoatNumber: 6,
     questionCode: 'G3Z7F2',
-    question: 'Four symbols in the Malayalam script conceal my identity. Decode them carefully and discover who I am!\n൨൩൦൭ — Can you guess who I am?',
+    question: 'A phone call meant for one person reaches the wrong hands. What follows is a kidnapping plan filled with confusion and comedy. Which classic Malayalam film am I?',
     answerBoatNumber: 16,
-    answer: '2307',
+    answer: 'Ramji Rao Speaking (1989)',
     answerCode: 'H6F1Y8',
     code: 'H6F1Y8'
   },
@@ -592,9 +592,9 @@ export const BOAT_GAME_QUESTIONS = [
     teamNumber: 8,
     questionBoatNumber: 8,
     questionCode: 'X1V5Q9',
-    question: 'Written in the tongue of Malayalam, four symbols hide my identity. Decode me, and discover who I am!\n൨൦൨൬ — Can you guess who I am?',
+    question: 'Four symbols in the Malayalam script conceal my identity. Decode them carefully and discover who I am!\n൨൩൦൭ — Can you guess who I am?',
     answerBoatNumber: 18,
-    answer: '2026',
+    answer: '2307',
     answerCode: 'Z5S8B4',
     code: 'Z5S8B4'
   },

@@ -173,12 +173,31 @@ export function getTeamCurrentTask(team, localStore = null) {
   const schedule = TEAM_GAME_SCHEDULE[team.team_number] || TEAM_GAME_SCHEDULE[1];
 
   if (step >= schedule.length) {
+    const store = localStore || (isSupabaseConfigured ? null : readLocalStore());
+    const allTeams = store?.teams || [];
+    const myCompletedTime = team.completed_at ? new Date(team.completed_at).getTime() : Infinity;
+    const isFirstPlace = Boolean(
+      team.completed_at &&
+      !allTeams.some((t) => {
+        if (t.id === team.id || !t.completed_at) return false;
+        const otherTime = new Date(t.completed_at).getTime();
+        if (otherTime < myCompletedTime) return true;
+        if (otherTime === myCompletedTime) {
+          return (t.team_number || 0) < (team.team_number || 0);
+        }
+        return false;
+      })
+    );
+
     return {
       step,
       finished: true,
       letter: 'M',
-      clueTitle: 'KERALAM Completed! 🎉',
-      riddle: 'Your team has triumphed over all trials! Assemble at the Thanima main stage to claim the golden crown.',
+      isFirstPlace,
+      clueTitle: isFirstPlace ? '🏆 VICTORY & GRAND PRIZE!' : '✨ KERALAM COMPLETE!',
+      riddle: isFirstPlace
+        ? 'You are the 1st Place Champions of Nidhiveta! Claim the Grand Prize and Crown of Makutam at the Thanima main stage.'
+        : 'Congratulations! You have conquered all 7 trials of Nidhiveta. Assemble at the Thanima main stage for the grand celebration.',
       crypticHint: 'Thanima Main Stage / Auditorium',
       mapUrl: 'https://www.google.com/maps/search/?api=1&query=VIT+Chennai+Auditorium',
       points: 150
@@ -1076,13 +1095,23 @@ export async function getAllPhotoSubmissions() {
 export async function getLeaderboard() {
   const teams = await getAllTeams();
   const sorted = [...teams].sort((a, b) => {
-    if (b.current_step !== a.current_step) return b.current_step - a.current_step;
+    if ((b.current_step || 0) !== (a.current_step || 0)) {
+      return (b.current_step || 0) - (a.current_step || 0);
+    }
     if (a.completed_at && b.completed_at) {
-      return new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
+      const diff = new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
+      if (diff !== 0) return diff;
     }
     if (a.completed_at) return -1;
     if (b.completed_at) return 1;
-    return (b.points || 0) - (a.points || 0);
+    if ((b.points || 0) !== (a.points || 0)) {
+      return (b.points || 0) - (a.points || 0);
+    }
+    if (a.updated_at && b.updated_at) {
+      const diff = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+      if (diff !== 0) return diff;
+    }
+    return (a.team_number || 0) - (b.team_number || 0);
   });
 
   return sorted.map((t) => ({

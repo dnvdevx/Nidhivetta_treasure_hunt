@@ -468,20 +468,56 @@ export default function App() {
         <section className="mt-4 rounded-2xl bg-card p-5 border border-gold/15 shadow-xl">
           <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
             <span className="text-[10px] uppercase tracking-wider text-gold font-bold bg-gold/15 border border-gold/30 px-2.5 py-0.5 rounded-full">
-              Mission {done + 1} of 7 • Letter "{done === 6 ? 'Final M' : WORD[done]}"
+              {isFinished
+                ? 'HUNT COMPLETE • 7/7 LETTERS'
+                : done === 6
+                ? 'FINAL GAME • LETTER "M"'
+                : `Mission ${done + 1} of 7 • Letter "${WORD[done]}"`}
             </span>
             <span className="text-xs font-serif font-bold text-cream/70">
-              {currentTask?.gameName || 'Trial Station'}
+              {isFinished ? 'VICTORY' : done === 6 ? 'Final Game' : (currentTask?.gameName || '')}
             </span>
           </div>
 
           {isFinished ? (
-            <div className="text-center py-4 space-y-2">
-              <h3 className="font-serif text-2xl font-bold text-gold">KERALAM COMPLETE!</h3>
-              <p className="text-xs text-white/70 leading-relaxed">
-                Splendid triumph! Your team has discovered all seven letters of KERALAM.
-                Proceed immediately to the Organizers Stage to claim your grand victory!
-              </p>
+            <div className="text-center py-5 space-y-3">
+              {currentTask?.isFirstPlace ? (
+                <>
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gold/20 text-gold text-3xl mb-1 shadow-lg border border-gold/40 animate-bounce">
+                    🏆
+                  </div>
+                  <h3 className="font-serif text-2xl font-bold text-gold tracking-wide">
+                    1st PLACE CHAMPIONS!
+                  </h3>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-cream">
+                      Crown of Makutam Unlocked!
+                    </p>
+                    <p className="text-xs text-white/80 leading-relaxed max-w-sm mx-auto">
+                      Phenomenal speed! Your team is the <strong>first</strong> to conquer all 7 trials of Nidhiveta.
+                      Proceed immediately to the Thanima Main Stage to claim your Grand Prize!
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl mb-1 shadow-lg border border-emerald-500/40">
+                    ✨
+                  </div>
+                  <h3 className="font-serif text-2xl font-bold text-gold tracking-wide">
+                    KERALAM COMPLETE!
+                  </h3>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-cream">
+                      Splendid triumph! Well played!
+                    </p>
+                    <p className="text-xs text-white/80 leading-relaxed max-w-sm mx-auto">
+                      Congratulations on conquering all 7 trials of Nidhiveta and assembling the full word K-E-R-A-L-A-M.
+                      Head over to the Thanima Main Stage to celebrate with all participants!
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           ) : currentTask ? (
             <div className="mt-3 space-y-3.5">

@@ -9,7 +9,24 @@ export default function LeaderboardModal({ isOpen, onClose, currentTeamId }) {
       setLoading(true);
       const res = await fetch('/api/leaderboard');
       const data = await res.json();
-      setTeams(data);
+      const sorted = Array.isArray(data)
+        ? [...data].sort((a, b) => {
+            if ((b.current_step || 0) !== (a.current_step || 0)) {
+              return (b.current_step || 0) - (a.current_step || 0);
+            }
+            if (a.completed_at && b.completed_at) {
+              const diff = new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime();
+              if (diff !== 0) return diff;
+            }
+            if (a.completed_at) return -1;
+            if (b.completed_at) return 1;
+            if ((b.points || 0) !== (a.points || 0)) {
+              return (b.points || 0) - (a.points || 0);
+            }
+            return (a.team_number || 0) - (b.team_number || 0);
+          })
+        : [];
+      setTeams(sorted);
     } catch (err) {
       console.error('Failed to load leaderboard:', err);
     } finally {
