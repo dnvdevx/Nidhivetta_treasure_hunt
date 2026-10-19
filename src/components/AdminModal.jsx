@@ -179,9 +179,10 @@ export default function AdminModal({ isOpen, onClose }) {
 
   const handleReviewPhoto = async (submissionId, status, extra = {}) => {
     // Immediately update local cache
+    const targetIdx = Number(extra.targetIndex);
     setPhotoSubmissions((prev) => {
       const next = prev.map((p) => {
-        if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && p.target_index === extra.targetIndex)) {
+        if (p.id === submissionId || (extra.teamId && p.team_id === extra.teamId && Number(p.target_index) === targetIdx)) {
           return { ...p, status };
         }
         return p;
@@ -191,6 +192,22 @@ export default function AdminModal({ isOpen, onClose }) {
       } catch (_) {}
       return next;
     });
+
+    // Also update teams list state immediately so approved_photo_targets matches
+    setTeams((prev) => prev.map((t) => {
+      if (t.id === extra.teamId || Number(t.team_number) === Number(extra.teamId)) {
+        let approved = Array.isArray(t.approved_photo_targets) ? [...t.approved_photo_targets] : [];
+        if (status === 'approved') {
+          if (!approved.some((idx) => Number(idx) === targetIdx)) {
+            approved.push(targetIdx);
+          }
+        } else if (status === 'rejected') {
+          approved = approved.filter((idx) => Number(idx) !== targetIdx);
+        }
+        return { ...t, approved_photo_targets: approved };
+      }
+      return t;
+    }));
 
     try {
       setActionMessage('');
@@ -202,7 +219,7 @@ export default function AdminModal({ isOpen, onClose }) {
           submissionId,
           status,
           teamId: extra.teamId,
-          targetIndex: extra.targetIndex
+          targetIndex: targetIdx
         })
       });
       const data = await res.json();
@@ -736,8 +753,19 @@ export default function AdminModal({ isOpen, onClose }) {
                     return (
                       <div className="space-y-4">
                         {stationTeams.map((t) => {
-                          const teamPhotos = photoSubmissions.filter((p) => p.team_id === t.id);
-                          const approvedCount = teamPhotos.filter((p) => p.status === 'approved').length;
+                          const teamPhotos = photoSubmissions.filter(
+                            (p) => p.team_id === t.id || Number(p.team_number) === Number(t.team_number)
+                          );
+                          const rejectedIndices = new Set(
+                            teamPhotos.filter((p) => p.status === 'rejected').map((p) => Number(p.target_index))
+                          );
+                          const validApprovedTargets = (t.approved_photo_targets || []).filter(
+                            (idx) => !rejectedIndices.has(Number(idx))
+                          );
+                          const approvedCount = Math.max(
+                            teamPhotos.filter((p) => p.status === 'approved' && !rejectedIndices.has(Number(p.target_index))).length,
+                            validApprovedTargets.length
+                          );
 
                           return (
                             <div
@@ -785,10 +813,13 @@ export default function AdminModal({ isOpen, onClose }) {
                                 </h5>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {getTeamPhotoTargets(t.team_number).map((tgt) => {
-                                    const sub = teamPhotos.find((p) => p.target_index === tgt.index);
-                                    const isApproved = sub?.status === 'approved';
-                                    const isPending = sub?.status === 'pending';
+                                    const sub = teamPhotos.find((p) => Number(p.target_index) === Number(tgt.index));
                                     const isRejected = sub?.status === 'rejected';
+                                    const isApproved =
+                                      !isRejected &&
+                                      (sub?.status === 'approved' ||
+                                        Boolean(t.approved_photo_targets?.some((idx) => Number(idx) === Number(tgt.index))));
+                                    const isPending = !isApproved && !isRejected && sub?.status === 'pending';
 
                                     return (
                                       <div

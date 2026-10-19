@@ -90,23 +90,65 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
   const [error, setError] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
 
-  // Automatically lock approved photos into permanent localStorage
+  // Automatically lock approved photos into permanent localStorage, and purge rejected ones
   useEffect(() => {
-    const serverApproved = (photoState.submissions || []).filter((s) => s.status === 'approved');
-    if (serverApproved.length > 0) {
+    const serverSubmissions = photoState.submissions || [];
+    const serverApproved = serverSubmissions.filter((s) => s.status === 'approved');
+    const serverRejected = serverSubmissions.filter((s) => s.status === 'rejected');
+    const serverPending = serverSubmissions.filter((s) => s.status === 'pending');
+
+    // 1. If any target is rejected, purge from localApproved and localUploads immediately!
+    if (serverRejected.length > 0) {
       setLocalApproved((prev) => {
         const next = { ...prev };
         let changed = false;
-        serverApproved.forEach((s) => {
-          if (!next[s.target_index]) {
-            next[s.target_index] = {
-              target_index: s.target_index,
-              status: 'approved',
-              image_url: s.image_url || localUploads[s.target_index] || null
-            };
+        serverRejected.forEach((s) => {
+          const idx = Number(s.target_index);
+          if (next[idx] !== undefined) {
+            delete next[idx];
             changed = true;
-          } else if (s.image_url && !next[s.target_index].image_url) {
-            next[s.target_index].image_url = s.image_url;
+          }
+        });
+        if (changed) {
+          try {
+            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
+          } catch (_) {}
+          return next;
+        }
+        return prev;
+      });
+
+      serverRejected.forEach((s) => {
+        const idx = Number(s.target_index);
+        try {
+          sessionStorage.removeItem(`thanima_photo_upload_${idx}`);
+          localStorage.removeItem(`thanima_photo_upload_${idx}`);
+        } catch (_) {}
+      });
+
+      setLocalUploads((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        serverRejected.forEach((s) => {
+          const idx = Number(s.target_index);
+          if (next[idx] !== undefined) {
+            delete next[idx];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+
+    // 2. If any target is currently pending review, make sure it is not marked as localApproved
+    if (serverPending.length > 0) {
+      setLocalApproved((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        serverPending.forEach((s) => {
+          const idx = Number(s.target_index);
+          if (next[idx] !== undefined) {
+            delete next[idx];
             changed = true;
           }
         });
@@ -120,37 +162,52 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       });
     }
 
-    // If server reports rejected for a target, clear the discarded local upload
-    (photoState.submissions || []).forEach((s) => {
-      if (s.status === 'rejected') {
-        try {
-          sessionStorage.removeItem(`thanima_photo_upload_${s.target_index}`);
-          localStorage.removeItem(`thanima_photo_upload_${s.target_index}`);
-          setLocalUploads((prev) => {
-            const copy = { ...prev };
-            delete copy[s.target_index];
-            return copy;
-          });
-        } catch (_) {}
-      }
-    });
+    // 3. Cache truly approved targets
+    if (serverApproved.length > 0) {
+      setLocalApproved((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        serverApproved.forEach((s) => {
+          const idx = Number(s.target_index);
+          if (!next[idx]) {
+            next[idx] = {
+              target_index: idx,
+              status: 'approved',
+              image_url: s.image_url || localUploads[idx] || null
+            };
+            changed = true;
+          } else if (s.image_url && !next[idx].image_url) {
+            next[idx].image_url = s.image_url;
+            changed = true;
+          }
+        });
+        if (changed) {
+          try {
+            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
+          } catch (_) {}
+          return next;
+        }
+        return prev;
+      });
+    }
   }, [photoState.submissions]);
 
   const handleFileCapture = async (targetIndex, e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
+    const targetIdx = Number(targetIndex);
     setError('');
-    setUploadingTarget(targetIndex);
+    setUploadingTarget(targetIdx);
 
     try {
       const base64 = await compressImage(file);
 
       // Save locally immediately so it appears on screen without delay
       try {
-        sessionStorage.setItem(`thanima_photo_upload_${targetIndex}`, base64);
-        localStorage.setItem(`thanima_photo_upload_${targetIndex}`, base64);
-        setLocalUploads((prev) => ({ ...prev, [targetIndex]: base64 }));
+        sessionStorage.setItem(`thanima_photo_upload_${targetIdx}`, base64);
+        localStorage.setItem(`thanima_photo_upload_${targetIdx}`, base64);
+        setLocalUploads((prev) => ({ ...prev, [targetIdx]: base64 }));
       } catch (_) {}
 
       const token = localStorage.getItem('thanima_token');
@@ -162,7 +219,7 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          targetIndex,
+          targetIndex: targetIdx,
           imageUrl: base64
         })
       });
@@ -179,10 +236,24 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
   };
 
   const targets = photoState.targets || [];
+  const rejectedIndices = new Set(
+    (photoState.submissions || [])
+      .filter((s) => s.status === 'rejected')
+      .map((s) => Number(s.target_index))
+  );
+
+  const cleanLocalApprovedCount = Object.keys(localApproved).filter(
+    (k) => !rejectedIndices.has(Number(k))
+  ).length;
+
+  const serverApprovedCount = (photoState.submissions || []).filter(
+    (s) => s.status === 'approved'
+  ).length;
+
   const approvedCount = Math.max(
     photoState.approvedCount || 0,
-    Object.keys(localApproved).length,
-    (photoState.submissions || []).filter((s) => s.status === 'approved').length
+    serverApprovedCount,
+    cleanLocalApprovedCount
   );
   const isAllApproved = approvedCount >= 3;
 
@@ -228,16 +299,20 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       {/* Target Items List - Displayed one after the other */}
       <div className="space-y-3">
         {targets.map((tgt, i) => {
-          const submission = (photoState.submissions || []).find((s) => s.target_index === tgt.index);
-          const isApprovedLocally = Boolean(localApproved[tgt.index]);
-          const isApproved = isApprovedLocally || submission?.status === 'approved';
-          const isRejected = !isApproved && submission?.status === 'rejected';
-          const isPending = !isApproved && !isRejected && (submission?.status === 'pending' || Boolean(localUploads[tgt.index]));
+          const submission = (photoState.submissions || []).find((s) => Number(s.target_index) === Number(tgt.index));
+          const isRejected = submission?.status === 'rejected';
+          const isApproved = !isRejected && (
+            submission?.status === 'approved' ||
+            (Boolean(localApproved[tgt.index]) && !isRejected)
+          );
+          const isPending = !isApproved && !isRejected && (
+            submission?.status === 'pending' || Boolean(localUploads[tgt.index])
+          );
           const isCurrentActive = i === approvedCount;
 
           const displayImageUrl =
             submission?.image_url ||
-            localApproved[tgt.index]?.image_url ||
+            (!isRejected && localApproved[tgt.index]?.image_url) ||
             localUploads[tgt.index] ||
             null;
 
@@ -247,12 +322,12 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
               className={`rounded-2xl border p-4 transition shadow-md ${
                 isApproved
                   ? 'border-emerald-500/50 bg-emerald-950/30'
+                  : isRejected
+                  ? 'border-red-500/50 bg-red-950/25 ring-1 ring-red-500/30'
                   : isCurrentActive
                   ? 'border-gold bg-card ring-2 ring-gold/20'
                   : isPending
                   ? 'border-amber-500/40 bg-amber-950/20'
-                  : isRejected
-                  ? 'border-red-500/40 bg-red-950/20'
                   : 'border-white/10 bg-inset/70'
               }`}
             >
@@ -260,7 +335,11 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      isApproved ? 'bg-emerald-500 text-bg' : 'bg-gold/20 text-gold'
+                      isApproved
+                        ? 'bg-emerald-500 text-bg'
+                        : isRejected
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gold/20 text-gold'
                     }`}>
                       {isApproved ? (
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -291,8 +370,9 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                   </span>
                 )}
                 {isRejected && (
-                  <span className="text-[10px] bg-red-500/20 text-red-300 font-bold px-2.5 py-0.5 rounded-full border border-red-500/30 whitespace-nowrap">
-                    Retake Photo
+                  <span className="text-[10px] bg-red-500/25 text-red-300 font-bold px-2.5 py-0.5 rounded-full border border-red-500/40 whitespace-nowrap animate-pulse flex items-center gap-1">
+                    <span>⚠️</span>
+                    <span>Retake Requested</span>
                   </span>
                 )}
               </div>
@@ -334,57 +414,92 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                         src={displayImageUrl}
                         alt={tgt.title}
                         onClick={() => setPreviewImage(displayImageUrl)}
-                        className="h-16 w-16 rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-80"
+                        className={`h-16 w-16 rounded-xl object-cover border cursor-pointer shadow hover:opacity-80 ${
+                          isApproved
+                            ? 'border-emerald-500/60'
+                            : isRejected
+                            ? 'border-red-500/80 ring-2 ring-red-500/30'
+                            : 'border-white/20'
+                        }`}
                       />
-                      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] text-center text-white/80 rounded-b-xl py-0.5">
-                        Your photo
+                      <span className={`absolute bottom-0 inset-x-0 text-[8px] text-center rounded-b-xl py-0.5 font-bold ${
+                        isApproved
+                          ? 'bg-emerald-950/90 text-emerald-300'
+                          : isRejected
+                          ? 'bg-red-950/90 text-red-300'
+                          : 'bg-black/75 text-white/80'
+                      }`}>
+                        {isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Your photo'}
                       </span>
                     </div>
-                    <div className="text-[11px] text-white/60">
-                      {isApproved
-                        ? 'Coordinator verified! Location cleared.'
-                        : isPending
-                        ? 'Coordinator is reviewing your photo...'
-                        : 'Coordinator requested a retake.'}
+                    <div className="text-[11px]">
+                      {isApproved ? (
+                        <span className="text-emerald-300 font-medium">✓ Coordinator verified! Location cleared.</span>
+                      ) : isPending ? (
+                        <span className="text-amber-300 font-medium">⏳ Coordinator is reviewing your photo...</span>
+                      ) : isRejected ? (
+                        <div className="space-y-0.5">
+                          <span className="text-red-300 font-bold block">⚠️ Retake Requested</span>
+                          <span className="text-red-200/90 text-[10px] leading-tight block">
+                            {submission?.comment || 'Coordinator requested a retake. Tap Camera or Gallery to upload again.'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-white/60">Ready to photograph</span>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <span className="text-[11px] text-white/40 italic">
-                    Find this location and upload a full photo
+                    {isRejected
+                      ? '⚠️ Coordinator requested a retake. Tap Camera or Gallery below.'
+                      : 'Find this location and upload a full photo'}
                   </span>
                 )}
 
                 {/* Photo Action Inputs: Camera Snap + Gallery Upload */}
                 {!isApproved && (
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                     {/* Option 1: Live Camera Snap */}
-                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-gold text-bg px-3.5 py-2 text-xs font-bold hover:bg-gold/90 active:scale-95 transition shadow-md">
-                      {uploadingTarget === tgt.index ? (
-                        'Uploading...'
-                      ) : displayImageUrl ? (
-                        'Retake'
-                      ) : (
-                        'Camera'
-                      )}
+                    <label className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold active:scale-95 transition shadow-md ${
+                      isRejected
+                        ? 'bg-red-600 text-white hover:bg-red-500 shadow-red-600/30'
+                        : 'bg-gold text-bg hover:bg-gold/90'
+                    }`}>
+                      <span>📷</span>
+                      <span>
+                        {uploadingTarget === tgt.index
+                          ? 'Uploading...'
+                          : isRejected || displayImageUrl
+                          ? 'Retake Camera'
+                          : 'Camera'}
+                      </span>
                       <input
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        onClick={(e) => { e.target.value = ''; }}
                         onChange={(e) => handleFileCapture(tgt.index, e)}
                         disabled={uploadingTarget !== null}
-                        className="hidden"
+                        className="sr-only"
                       />
                     </label>
 
                     {/* Option 2: Upload from Device / Gallery */}
-                    <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-white/10 border border-white/25 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 active:scale-95 transition">
-                      {uploadingTarget === tgt.index ? '...' : 'Gallery'}
+                    <label className={`cursor-pointer inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold active:scale-95 transition ${
+                      isRejected
+                        ? 'bg-red-950/60 border border-red-500/50 text-red-200 hover:bg-red-900/60'
+                        : 'bg-white/10 border border-white/25 text-white hover:bg-white/20'
+                    }`}>
+                      <span>🖼️</span>
+                      <span>{uploadingTarget === tgt.index ? '...' : isRejected ? 'Retake Gallery' : 'Gallery'}</span>
                       <input
                         type="file"
                         accept="image/*"
+                        onClick={(e) => { e.target.value = ''; }}
                         onChange={(e) => handleFileCapture(tgt.index, e)}
                         disabled={uploadingTarget !== null}
-                        className="hidden"
+                        className="sr-only"
                       />
                     </label>
                   </div>

@@ -229,14 +229,15 @@ app.post('/api/tasks/scan', authenticateToken, async (req, res) => {
 app.post('/api/photo-game/submit', authenticateToken, async (req, res) => {
   try {
     const { targetIndex, imageUrl } = req.body;
+    const targetIdx = Number(targetIndex);
 
-    if (typeof targetIndex !== 'number' || !imageUrl) {
+    if (isNaN(targetIdx) || !imageUrl) {
       return res.status(400).json({ error: 'Target index and photo image are required.' });
     }
 
     const submission = await submitPhotoTarget({
       teamId: req.user.teamId,
-      targetIndex,
+      targetIndex: targetIdx,
       imageUrl,
       participantName: req.user.memberName
     });

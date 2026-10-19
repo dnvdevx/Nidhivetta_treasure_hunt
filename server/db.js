@@ -276,19 +276,20 @@ export function getTeamCurrentTask(team, localStore = null) {
       teamSubmissions = store.photoSubmissions.filter((p) => p.team_id === team.id);
     }
 
-    // Monotonic guard: ensure any target approved on the team record is always present
+    // Monotonic guard: ensure any target approved on the team record is present (unless explicitly rejected)
     if (team.approved_photo_targets && Array.isArray(team.approved_photo_targets)) {
       for (const approvedIdx of team.approved_photo_targets) {
-        let sub = teamSubmissions.find((s) => s.target_index === approvedIdx);
+        const numApprovedIdx = Number(approvedIdx);
+        let sub = teamSubmissions.find((s) => Number(s.target_index) === numApprovedIdx);
         if (!sub) {
           sub = {
-            id: `approved-${team.id}-${approvedIdx}`,
+            id: `approved-${team.id}-${numApprovedIdx}`,
             team_id: team.id,
-            target_index: approvedIdx,
+            target_index: numApprovedIdx,
             status: 'approved'
           };
           teamSubmissions.push(sub);
-        } else {
+        } else if (sub.status !== 'rejected') {
           sub.status = 'approved';
         }
       }
@@ -927,8 +928,9 @@ export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, partici
   const team = await getTeamById(teamId);
   if (!team) throw new Error('Team not found');
 
+  const targetIdx = Number(targetIndex);
   const teamTargets = TEAM_PHOTO_TARGETS[team.team_number] || TEAM_PHOTO_TARGETS[1];
-  const target = teamTargets[targetIndex] || PHOTO_GAME_TARGETS[targetIndex];
+  const target = teamTargets[targetIdx] || PHOTO_GAME_TARGETS[targetIdx];
   if (!target) throw new Error('Invalid photo target index');
 
   const now = new Date().toISOString();
@@ -939,7 +941,7 @@ export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, partici
     team_id: team.id,
     team_number: team.team_number,
     team_name: team.name,
-    target_index: targetIndex,
+    target_index: targetIdx,
     target_title: target.title,
     location_name: target.locationName || target.title,
     clue_image: target.clueImage || null,
@@ -955,9 +957,18 @@ export async function submitPhotoTarget({ teamId, targetIndex, imageUrl, partici
     if (!store.photoSubmissions) store.photoSubmissions = [];
     // Replace any existing submission for this team and target
     store.photoSubmissions = store.photoSubmissions.filter(
-      (s) => !(s.team_id === team.id && s.target_index === targetIndex)
+      (s) => !(s.team_id === team.id && Number(s.target_index) === targetIdx)
     );
     store.photoSubmissions.push(newSubmission);
+
+    // If re-submitting a target, remove from approved_photo_targets so it is pending fresh review
+    const stTeam = store.teams?.find((t) => t.id === team.id || String(t.team_number) === String(team.team_number));
+    if (stTeam && Array.isArray(stTeam.approved_photo_targets)) {
+      stTeam.approved_photo_targets = stTeam.approved_photo_targets.filter(
+        (idx) => Number(idx) !== targetIdx
+      );
+    }
+
     writeLocalStore(store);
   }
 
@@ -994,10 +1005,12 @@ export async function reviewPhotoSubmission({ submissionId, status, comment, tea
   const store = isSupabaseConfigured ? null : readLocalStore();
   let submission = store.photoSubmissions?.find((s) => s.id === submissionId);
 
+  const resolvedTargetIdx = targetIndex !== undefined ? Number(targetIndex) : undefined;
+
   // Fallback 1: Lookup by teamId and targetIndex
-  if (!submission && teamId !== undefined && targetIndex !== undefined) {
+  if (!submission && teamId !== undefined && resolvedTargetIdx !== undefined) {
     submission = store.photoSubmissions?.find(
-      (s) => s.team_id === teamId && s.target_index === Number(targetIndex)
+      (s) => (s.team_id === teamId || String(s.team_number) === String(teamId)) && Number(s.target_index) === resolvedTargetIdx
     );
   }
 
@@ -1012,7 +1025,7 @@ export async function reviewPhotoSubmission({ submissionId, status, comment, tea
         teamId = teamId || parsedTeamId;
         targetIndex = targetIndex !== undefined ? targetIndex : parsedTargetIdx;
         submission = store.photoSubmissions?.find(
-          (s) => s.team_id === teamId && s.target_index === parsedTargetIdx
+          (s) => s.team_id === teamId && Number(s.target_index) === parsedTargetIdx
         );
       }
     }
@@ -1033,27 +1046,30 @@ export async function reviewPhotoSubmission({ submissionId, status, comment, tea
 
   const now = new Date().toISOString();
   submission.status = status; // 'approved' or 'rejected'
-  submission.comment = comment || '';
+  submission.comment = comment || (status === 'rejected' ? 'Coordinator requested a retake. Please capture a clearer photo of the entire location.' : '');
   submission.reviewed_at = now;
 
   let taskCompleted = false;
   let completeResult = null;
 
   const targetTeamId = submission.team_id || teamId;
-  const targetIdx = submission.target_index !== undefined ? submission.target_index : Number(targetIndex);
+  const targetIdx = submission.target_index !== undefined ? Number(submission.target_index) : Number(targetIndex);
+
+  const stTeam = store.teams?.find(
+    (t) => t.id === targetTeamId || String(t.team_number) === String(targetTeamId)
+  );
 
   if (status === 'approved') {
-    const stTeam = store.teams?.find((t) => t.id === targetTeamId);
     if (stTeam) {
       if (!stTeam.approved_photo_targets) stTeam.approved_photo_targets = [];
-      if (!stTeam.approved_photo_targets.includes(targetIdx)) {
+      if (!stTeam.approved_photo_targets.some((idx) => Number(idx) === targetIdx)) {
         stTeam.approved_photo_targets.push(targetIdx);
       }
     }
 
     // Check if team now has 3 approved photos (via store or team.approved_photo_targets)
     const teamSubmissions = store.photoSubmissions.filter(
-      (s) => s.team_id === targetTeamId && s.status === 'approved'
+      (s) => (s.team_id === targetTeamId || String(s.team_number) === String(targetTeamId)) && s.status === 'approved'
     );
     const approvedCount = Math.max(
       teamSubmissions.length,
@@ -1063,17 +1079,16 @@ export async function reviewPhotoSubmission({ submissionId, status, comment, tea
     if (approvedCount >= 3) {
       writeLocalStore(store);
       completeResult = await completeTeamTask({
-        teamId: targetTeamId,
+        teamId: stTeam ? stTeam.id : targetTeamId,
         participantName: 'Photo Game Marshal',
         method: 'PHOTO_GAME_MARSHAL_APPROVAL'
       });
       taskCompleted = true;
     }
   } else if (status === 'rejected') {
-    const stTeam = store.teams?.find((t) => t.id === targetTeamId);
-    if (stTeam && stTeam.approved_photo_targets) {
+    if (stTeam && Array.isArray(stTeam.approved_photo_targets)) {
       stTeam.approved_photo_targets = stTeam.approved_photo_targets.filter(
-        (idx) => idx !== targetIdx
+        (idx) => Number(idx) !== targetIdx
       );
     }
   }
