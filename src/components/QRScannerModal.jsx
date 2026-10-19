@@ -167,7 +167,7 @@ export default function QRScannerModal({ isOpen, onClose, onScanSuccess }) {
               type="text"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
-              placeholder="e.g. THANIMA-KERALAM-K-9481"
+              placeholder="Enter Checkpoint Code"
               className="flex-1 rounded-xl border border-white/20 bg-inset px-3 py-2 text-xs text-white placeholder-white/30 focus:border-gold focus:outline-none"
             />
             <button

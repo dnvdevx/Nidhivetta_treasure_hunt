@@ -78,7 +78,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
 
     const clean = questionCodeInput.trim().toUpperCase();
     if (!clean || clean.length !== 6) {
-      setError('Please enter the 6-character Question Boat code (e.g. W4N8X2).');
+      setError('Please enter the 6-character Question Boat code.');
       return;
     }
 
@@ -120,7 +120,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
 
     const clean = answerCodeInput.trim().toUpperCase();
     if (!clean || clean.length !== 6) {
-      setError('Please enter the 6-character Answer Boat code (e.g. A3B2C1).');
+      setError('Please enter the 6-character Answer Boat code.');
       return;
     }
 
@@ -278,7 +278,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
                 maxLength={6}
                 value={questionCodeInput}
                 onChange={(e) => setQuestionCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                placeholder="W4N8X2"
+                placeholder="------"
                 className="w-full max-w-[220px] rounded-xl border border-gold/40 bg-card py-3 px-4 text-center font-mono text-2xl font-bold tracking-[0.25em] text-gold uppercase placeholder-white/20 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30 shadow-inner"
                 required
                 autoComplete="off"
@@ -344,7 +344,7 @@ export default function BoatGameView({ task, onTaskCompleted, onSyncState }) {
                   maxLength={6}
                   value={answerCodeInput}
                   onChange={(e) => setAnswerCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                  placeholder="A3B2C1"
+                  placeholder="------"
                   className="w-full max-w-[220px] rounded-xl border border-gold/40 bg-card py-3 px-4 text-center font-mono text-2xl font-bold tracking-[0.25em] text-gold uppercase placeholder-white/20 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30 shadow-inner"
                   required
                   autoComplete="off"

@@ -195,12 +195,12 @@ export default function AuthModal({ onAuthSuccess, initialStationQr = '', onOpen
                 {manualDevMode && (
                   <div className="rounded-xl border border-white/10 bg-inset p-3 space-y-2">
                     <label className="text-[10px] uppercase tracking-wider text-white/50 block">
-                      Manual Station Code (e.g. THANIMA-START-STATION-1)
+                      Manual Station Code
                     </label>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="THANIMA-START-STATION-1"
+                        placeholder="Enter Station Code"
                         onChange={(e) => setStationQr(e.target.value.trim())}
                         className="flex-1 rounded-lg border border-white/20 bg-card px-3 py-1.5 text-xs text-white font-mono"
                       />
