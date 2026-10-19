@@ -433,11 +433,6 @@ export default function App() {
                 <p className="text-xs text-white/90 leading-relaxed italic whitespace-pre-line">
                   "{currentTask.riddle}"
                 </p>
-                {currentTask.crypticHint && (
-                  <p className="text-[11px] text-gold/90 flex items-center gap-1 pt-1.5 border-t border-white/5">
-                    Location Hint: <span className="text-white/80">{currentTask.crypticHint}</span>
-                  </p>
-                )}
               </div>
 
               {/* CLUE IMAGE CARD (e.g. Final Clue Map for letter M) */}
