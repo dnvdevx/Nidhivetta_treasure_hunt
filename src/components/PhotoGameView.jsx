@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Helper to compress client-side captured photo to lightweight ~800px JPEG
 // Uses URL.createObjectURL instead of loading raw 20MB files into base64 RAM
@@ -64,9 +64,76 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
     allTargetsCount: 3
   };
 
+  // Locally persisted approved photo records (strictly never lost once approved)
+  const [localApproved, setLocalApproved] = useState(() => {
+    try {
+      const saved = localStorage.getItem('thanima_approved_photos');
+      return saved ? JSON.parse(saved) : {};
+    } catch (_) {
+      return {};
+    }
+  });
+
+  // Session cache of active uploads so uploaded thumbnails appear instantly without flicker
+  const [localUploads, setLocalUploads] = useState(() => {
+    const uploads = {};
+    for (let idx = 0; idx < 3; idx++) {
+      try {
+        const up = sessionStorage.getItem(`thanima_photo_upload_${idx}`);
+        if (up) uploads[idx] = up;
+      } catch (_) {}
+    }
+    return uploads;
+  });
+
   const [uploadingTarget, setUploadingTarget] = useState(null);
   const [error, setError] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
+
+  // Automatically lock approved photos into permanent localStorage
+  useEffect(() => {
+    const serverApproved = (photoState.submissions || []).filter((s) => s.status === 'approved');
+    if (serverApproved.length > 0) {
+      setLocalApproved((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        serverApproved.forEach((s) => {
+          if (!next[s.target_index]) {
+            next[s.target_index] = {
+              target_index: s.target_index,
+              status: 'approved',
+              image_url: s.image_url || localUploads[s.target_index] || null
+            };
+            changed = true;
+          } else if (s.image_url && !next[s.target_index].image_url) {
+            next[s.target_index].image_url = s.image_url;
+            changed = true;
+          }
+        });
+        if (changed) {
+          try {
+            localStorage.setItem('thanima_approved_photos', JSON.stringify(next));
+          } catch (_) {}
+          return next;
+        }
+        return prev;
+      });
+    }
+
+    // If server reports rejected for a target, clear the discarded local upload
+    (photoState.submissions || []).forEach((s) => {
+      if (s.status === 'rejected') {
+        try {
+          sessionStorage.removeItem(`thanima_photo_upload_${s.target_index}`);
+          setLocalUploads((prev) => {
+            const copy = { ...prev };
+            delete copy[s.target_index];
+            return copy;
+          });
+        } catch (_) {}
+      }
+    });
+  }, [photoState.submissions]);
 
   const handleFileCapture = async (targetIndex, e) => {
     const file = e.target.files && e.target.files[0];
@@ -77,6 +144,13 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
 
     try {
       const base64 = await compressImage(file);
+
+      // Save locally in session immediately so it appears on screen without delay
+      try {
+        sessionStorage.setItem(`thanima_photo_upload_${targetIndex}`, base64);
+        setLocalUploads((prev) => ({ ...prev, [targetIndex]: base64 }));
+      } catch (_) {}
+
       const token = localStorage.getItem('thanima_token');
 
       const res = await fetch('/api/photo-game/submit', {
@@ -103,7 +177,11 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
   };
 
   const targets = photoState.targets || [];
-  const approvedCount = photoState.approvedCount || 0;
+  const approvedCount = Math.max(
+    photoState.approvedCount || 0,
+    Object.keys(localApproved).length,
+    (photoState.submissions || []).filter((s) => s.status === 'approved').length
+  );
   const isAllApproved = approvedCount >= 3;
 
   return (
@@ -149,10 +227,17 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
       <div className="space-y-3">
         {targets.map((tgt, i) => {
           const submission = (photoState.submissions || []).find((s) => s.target_index === tgt.index);
-          const isPending = submission?.status === 'pending';
-          const isApproved = submission?.status === 'approved';
-          const isRejected = submission?.status === 'rejected';
+          const isApprovedLocally = Boolean(localApproved[tgt.index]);
+          const isApproved = isApprovedLocally || submission?.status === 'approved';
+          const isRejected = !isApproved && submission?.status === 'rejected';
+          const isPending = !isApproved && !isRejected && (submission?.status === 'pending' || Boolean(localUploads[tgt.index]));
           const isCurrentActive = i === approvedCount;
+
+          const displayImageUrl =
+            submission?.image_url ||
+            localApproved[tgt.index]?.image_url ||
+            localUploads[tgt.index] ||
+            null;
 
           return (
             <div
@@ -240,13 +325,13 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
 
               {/* Action / Photo upload button or Thumbnail */}
               <div className="mt-4 pl-8 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                {submission?.image_url ? (
+                {displayImageUrl ? (
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <img
-                        src={submission.image_url}
+                        src={displayImageUrl}
                         alt={tgt.title}
-                        onClick={() => setPreviewImage(submission.image_url)}
+                        onClick={() => setPreviewImage(displayImageUrl)}
                         className="h-16 w-16 rounded-xl object-cover border border-white/20 cursor-pointer shadow hover:opacity-80"
                       />
                       <span className="absolute bottom-0 inset-x-0 bg-black/75 text-[8px] text-center text-white/80 rounded-b-xl py-0.5">
@@ -274,7 +359,7 @@ export default function PhotoGameView({ task, onTaskCompleted, onSyncState }) {
                     <label className="cursor-pointer inline-flex items-center gap-1 rounded-xl bg-gold text-bg px-3.5 py-2 text-xs font-bold hover:bg-gold/90 active:scale-95 transition shadow-md">
                       {uploadingTarget === tgt.index ? (
                         'Uploading...'
-                      ) : submission ? (
+                      ) : displayImageUrl ? (
                         'Retake'
                       ) : (
                         'Camera'

@@ -251,6 +251,7 @@ export default function App() {
     localStorage.removeItem('thanima_token');
     localStorage.removeItem('thanima_cached_state');
     localStorage.removeItem('thanima_highest_step');
+    localStorage.removeItem('thanima_approved_photos');
     setToken(null);
     setTeam(null);
     setMember(null);

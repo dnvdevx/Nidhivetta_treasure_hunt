@@ -257,6 +257,24 @@ export function getTeamCurrentTask(team, localStore = null) {
       teamSubmissions = store.photoSubmissions.filter((p) => p.team_id === team.id);
     }
 
+    // Monotonic guard: ensure any target approved on the team record is always present
+    if (team.approved_photo_targets && Array.isArray(team.approved_photo_targets)) {
+      for (const approvedIdx of team.approved_photo_targets) {
+        let sub = teamSubmissions.find((s) => s.target_index === approvedIdx);
+        if (!sub) {
+          sub = {
+            id: `approved-${team.id}-${approvedIdx}`,
+            team_id: team.id,
+            target_index: approvedIdx,
+            status: 'approved'
+          };
+          teamSubmissions.push(sub);
+        } else {
+          sub.status = 'approved';
+        }
+      }
+    }
+
     const approvedCount = teamSubmissions.filter((s) => s.status === 'approved').length;
     // Sequential: show targets one after the other (up to approvedCount + 1)
     const visibleCount = Math.min(approvedCount + 1, allTargets.length);
@@ -903,6 +921,14 @@ export async function reviewPhotoSubmission({ submissionId, status, comment }) {
   let completeResult = null;
 
   if (status === 'approved') {
+    const stTeam = store.teams?.find((t) => t.id === submission.team_id);
+    if (stTeam) {
+      if (!stTeam.approved_photo_targets) stTeam.approved_photo_targets = [];
+      if (!stTeam.approved_photo_targets.includes(submission.target_index)) {
+        stTeam.approved_photo_targets.push(submission.target_index);
+      }
+    }
+
     // Check if team now has 3 approved photos
     const teamSubmissions = store.photoSubmissions.filter(
       (s) => s.team_id === submission.team_id && s.status === 'approved'
@@ -916,6 +942,13 @@ export async function reviewPhotoSubmission({ submissionId, status, comment }) {
         method: 'PHOTO_GAME_MARSHAL_APPROVAL'
       });
       taskCompleted = true;
+    }
+  } else if (status === 'rejected') {
+    const stTeam = store.teams?.find((t) => t.id === submission.team_id);
+    if (stTeam && stTeam.approved_photo_targets) {
+      stTeam.approved_photo_targets = stTeam.approved_photo_targets.filter(
+        (idx) => idx !== submission.target_index
+      );
     }
   }
 
