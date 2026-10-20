@@ -142,6 +142,10 @@ export default function GameAdminPage() {
   const [denyingTeam, setDenyingTeam] = useState(null);
   const [customDenyReason, setCustomDenyReason] = useState('');
   const [resetPasscodeInput, setResetPasscodeInput] = useState('');
+  // Single-team reset prompt
+  const [resetTeamTarget, setResetTeamTarget] = useState(null); // { id, name }
+  const [resetTeamCode, setResetTeamCode] = useState('');
+  const [resetTeamError, setResetTeamError] = useState('');
 
   // Perform login with entered passcode
   const handleLogin = async (e, directCode = null) => {
@@ -454,26 +458,39 @@ export default function GameAdminPage() {
     }
   };
 
-  // Reset Single Team
-  const handleResetSingleTeam = async (teamId, teamName) => {
-    if (!window.confirm(`Reset progress of ${teamName || teamId} to Step 0?`)) return;
+  // Reset Single Team: opens a passcode prompt, the reset itself runs in confirmResetSingleTeam
+  const handleResetSingleTeam = (teamId, teamName) => {
+    setResetTeamTarget({ id: teamId, name: teamName });
+    setResetTeamCode('');
+    setResetTeamError('');
+  };
+
+  const confirmResetSingleTeam = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!resetTeamTarget) return;
+    const code = resetTeamCode.trim();
+    if (!code) {
+      setResetTeamError('Please enter the reset passcode.');
+      return;
+    }
 
     try {
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          adminKey: session.key,
-          passcode: session.key,
-          teamId
+          adminKey: code,
+          teamId: resetTeamTarget.id
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Reset failed');
-      showActionToast(`✓ ${teamName || teamId} reset to Step 0!`);
+      showActionToast(`✓ ${resetTeamTarget.name || resetTeamTarget.id} reset to Step 0!`);
+      setResetTeamTarget(null);
+      setResetTeamCode('');
       await fetchLiveData(session.key);
     } catch (err) {
-      alert(`Reset Error: ${err.message}`);
+      setResetTeamError(err.message);
     }
   };
 
@@ -1435,6 +1452,61 @@ export default function GameAdminPage() {
           </div>
         )}
       </main>
+
+      {/* Single Team Reset Passcode Modal */}
+      {resetTeamTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <form
+            onSubmit={confirmResetSingleTeam}
+            className="w-full max-w-md rounded-3xl border border-red-500/40 bg-card p-6 space-y-4 shadow-2xl"
+          >
+            <div className="border-b border-white/10 pb-3">
+              <h4 className="font-serif text-lg font-bold text-red-300">
+                Reset {resetTeamTarget.name || resetTeamTarget.id}?
+              </h4>
+              <p className="text-xs text-white/60 mt-1">
+                This team goes back to Step 0. Their score, photos and boat claim are cleared.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-white/80 block">Enter Reset Passcode:</label>
+              <input
+                type="password"
+                autoFocus
+                value={resetTeamCode}
+                onChange={(e) => {
+                  setResetTeamCode(e.target.value);
+                  setResetTeamError('');
+                }}
+                placeholder="Enter Confirmation Passcode"
+                className="w-full rounded-xl border border-red-500/40 bg-inset px-4 py-2.5 text-xs text-white placeholder-white/30 focus:border-red-400 focus:outline-none"
+              />
+              {resetTeamError && (
+                <div className="rounded-xl border border-red-500/40 bg-red-950/40 p-2.5 text-xs text-red-300 font-medium">
+                  {resetTeamError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                className="flex-1 rounded-2xl bg-red-600 hover:bg-red-500 py-3 text-xs font-bold text-white transition shadow"
+              >
+                Reset Team
+              </button>
+              <button
+                type="button"
+                onClick={() => setResetTeamTarget(null)}
+                className="rounded-2xl bg-white/10 px-4 py-3 text-xs text-white/70 hover:bg-white/20"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Deny / Request Retry Modal Popup */}
       {denyingTeam && (
